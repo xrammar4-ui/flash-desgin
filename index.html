@@ -1489,11 +1489,20 @@ async function loadDiscordWidget(){
   }
 }
 
-/* Ensure order/join buttons always point to the server invite */
+/* Ensure order/join buttons always point to the server invite,
+   and force it open even in restrictive preview/sandboxed environments */
 document.querySelectorAll('.order-btn, .discord-join').forEach(el=>{
   el.href = DISCORD_LINK;
   el.target = '_blank';
   el.rel = 'noopener noreferrer';
+  el.addEventListener('click', (e)=>{
+    e.preventDefault();
+    const win = window.open(DISCORD_LINK, '_blank', 'noopener,noreferrer');
+    if(!win){
+      // popup was blocked — fall back to same-tab navigation
+      window.location.href = DISCORD_LINK;
+    }
+  });
 });
 
 applyLanguage('en');
