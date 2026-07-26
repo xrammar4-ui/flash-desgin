@@ -294,6 +294,7 @@
   .price-list svg{ width:16px; height:16px; flex-shrink:0; color:var(--red-glow); }
   .price-list b{ color:#fff; font-weight:800; }
   .order-btn{
+    display:block;
     margin-top:26px;
     width:100%;
     padding:13px;
@@ -426,7 +427,7 @@
             <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_bot_normal">Bot × 1</span></li>
             <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_welcome">Welcome</span></li>
           </ul>
-          <button class="order-btn" data-i18n="order_now">Order Now</button>
+          <a class="order-btn" data-i18n="order_now" href="https://discord.gg/GQx6kBQws9" target="_blank" rel="noopener noreferrer">Order Now</a>
         </div>
 
         <div class="price-card featured">
@@ -442,7 +443,7 @@
             <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_welcome">Welcome</span></li>
             <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_invite">Invite banner</span></li>
           </ul>
-          <button class="order-btn" data-i18n="order_now">Order Now</button>
+          <a class="order-btn" data-i18n="order_now" href="https://discord.gg/GQx6kBQws9" target="_blank" rel="noopener noreferrer">Order Now</a>
         </div>
 
         <div class="price-card">
@@ -457,7 +458,7 @@
             <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_welcome">Welcome</span></li>
             <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_invite">Invite banner</span></li>
           </ul>
-          <button class="order-btn" data-i18n="order_now">Order Now</button>
+          <a class="order-btn" data-i18n="order_now" href="https://discord.gg/GQx6kBQws9" target="_blank" rel="noopener noreferrer">Order Now</a>
         </div>
 
       </div>
@@ -639,12 +640,7 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
   });
 });
 
-/* ---------- Order Now buttons -> Discord invite ---------- */
-document.querySelectorAll('.order-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    window.open(DISCORD_LINK, '_blank');
-  });
-});
+/* Order Now buttons are real links to the Discord invite (see .order-btn href) */
 
 /* ---------- Background floating sparkles ---------- */
 const sparkPath = 'M40,50 C25,50 20,35 17,12 C30,32 42,44 58,50 C98,60 152,20 188,4 C150,46 88,56 58,60 C43,63 33,78 28,98 C31,74 34,58 40,50 Z';
