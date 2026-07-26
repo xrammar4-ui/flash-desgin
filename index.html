@@ -555,25 +555,34 @@
   .profile-modal-overlay.open .profile-card{ transform:translateY(0) scale(1); }
   .profile-scroll{ overflow-y:auto; }
 
+  .profile-banner{
+    height:80px;
+    background:linear-gradient(135deg, var(--bg-2), var(--red-900) 55%, var(--red-700) 100%);
+    background-size:cover;
+    background-position:center;
+    position:relative;
+  }
   .profile-topbar{
     display:flex; align-items:center; gap:8px;
-    padding:12px 14px 0;
+    padding:10px 12px;
+    position:relative; z-index:2;
   }
   .profile-back{
     width:22px; height:22px; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
-    background:rgba(255,255,255,.06);
+    background:rgba(0,0,0,.35);
     flex-shrink:0;
     transition:.2s;
   }
-  .profile-back:hover{ background:rgba(255,255,255,.14); }
+  .profile-back:hover{ background:rgba(0,0,0,.55); }
   .profile-back svg{ width:11px; height:11px; }
   .profile-topbar-label{
-    font-size:12.5px; font-weight:700; color:rgba(255,255,255,.45);
+    font-size:12.5px; font-weight:700; color:rgba(255,255,255,.75);
+    text-shadow:0 1px 4px rgba(0,0,0,.5);
   }
 
-  .profile-body{ padding:16px 16px 18px; }
-  .profile-avatar-row{ display:flex; align-items:center; gap:12px; }
+  .profile-body{ padding:0 16px 18px; }
+  .profile-avatar-row{ display:flex; align-items:flex-end; gap:12px; margin-top:-28px; position:relative; z-index:2; }
   .profile-avatar-wrap{ position:relative; flex-shrink:0; }
   .profile-avatar{
     width:56px; height:56px; border-radius:50%;
@@ -633,6 +642,38 @@
   .profile-badge.badge-check{ background:#23272a; }
   .profile-badge.badge-gear{ background:#5865F2; }
   .profile-badge.badge-gem{ background:linear-gradient(135deg,#8e5bff,#5865F2); }
+
+  .profile-activity{
+    display:flex; align-items:flex-start; gap:8px;
+    margin-top:14px; padding-top:12px;
+    border-top:1px solid rgba(255,255,255,.08);
+  }
+  .activity-dot{
+    width:8px; height:8px; border-radius:50%; margin-top:5px; flex-shrink:0;
+    background:#3ba55d;
+  }
+  .activity-text{ min-width:0; }
+  .activity-main{
+    font-size:12.5px; font-weight:700; color:#fff;
+    direction:rtl; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .activity-sub{
+    font-size:11.5px; font-weight:600; color:rgba(255,255,255,.5);
+    margin-top:2px; direction:rtl; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  .profile-note-wrap{
+    margin-top:14px; padding-top:12px;
+    border-top:1px solid rgba(255,255,255,.08);
+  }
+  .profile-note-title{
+    font-size:10.5px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+    color:rgba(255,255,255,.4); margin-bottom:6px;
+  }
+  .profile-note{
+    font-size:12.5px; line-height:1.6; color:rgba(255,255,255,.65); font-weight:600;
+    direction:rtl; text-align:right;
+  }
 </style>
 </head>
 <body>
@@ -834,11 +875,13 @@
     <div class="profile-modal-overlay" id="profileModal">
       <div class="profile-card">
         <div class="profile-scroll">
-          <div class="profile-topbar">
-            <button class="profile-back" id="profileClose" aria-label="Close">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 5l-7 7 7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <span class="profile-topbar-label" data-i18n="profile_brand">Flash x design</span>
+          <div class="profile-banner" id="profileBanner">
+            <div class="profile-topbar">
+              <button class="profile-back" id="profileClose" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 5l-7 7 7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <span class="profile-topbar-label" data-i18n="profile_brand">Flash x design</span>
+            </div>
           </div>
           <div class="profile-body">
             <div class="profile-avatar-row">
@@ -861,6 +904,19 @@
             </div>
 
             <div class="profile-badges" id="profileBadges"></div>
+
+            <div class="profile-activity" id="profileActivity" style="display:none;">
+              <span class="activity-dot"></span>
+              <div class="activity-text">
+                <div class="activity-main" id="profileActivityMain"></div>
+                <div class="activity-sub" id="profileActivitySub"></div>
+              </div>
+            </div>
+
+            <div class="profile-note-wrap" id="profileNoteWrap" style="display:none;">
+              <div class="profile-note-title" data-i18n="profile_note_title">Note</div>
+              <div class="profile-note" id="profileNote"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -894,7 +950,15 @@ const OWNER_PROFILE = {
     en: "Willpower without determination",
     ar: "الارادة تكون بلا عزيمة"
   },
-  badges: ["check", "gear", "gem"]
+  // البنر: ديسكورد ما يسمح بجلب بنر أي حساب تلقائياً بدون بوت خاص + توكن سري،
+  // فحط رابط صورة هنا يدوي (ارفعها على ibb.co مثلاً) وبيظهر بالبروفايل. اتركه فاضي لتدرج لوني افتراضي.
+  bannerUrl: "",
+  // النوت: مو بيانات ديسكورد، هذا نص تكتبه انت بنفسك عن نفسك
+  note: {
+    en: "",
+    ar: ""
+  }
+  // الشارات ما عادت يدوية — دلوقتي بتنجلب حقيقية من حساب ديسكورد نفسه عبر Lanyard (public_flags)
 };
 
 // صور الأعمال — أضف روابط صورك هنا بالترتيب اللي تريده
@@ -1127,6 +1191,29 @@ async function fetchLanyardData(){
 
     if(data.discord_status) OWNER.status = data.discord_status;
 
+    // شارات حقيقية من نفس حساب ديسكورد (public_flags) — مو وهمية
+    OWNER.realBadges = decodeDiscordBadges(user.public_flags);
+
+    // الأكتفتي — سبوتيفاي له أولوية، بعدها أي أكتفتي أخرى (لعبة، تطبيق...) غير "Custom Status"
+    OWNER.activity = null;
+    if(data.listening_to_spotify && data.spotify){
+      OWNER.activity = {
+        type: 'spotify',
+        text: { en: `Listening to ${data.spotify.song}`, ar: `يسمع ${data.spotify.song}` },
+        sub: `${data.spotify.artist}`
+      };
+    } else if(Array.isArray(data.activities)){
+      const act = data.activities.find(a => a.type !== 4); // type 4 = Custom Status text, skip it
+      if(act){
+        const typeLabel = { 0:{en:'Playing',ar:'يلعب'}, 1:{en:'Streaming',ar:'يبث'}, 2:{en:'Listening to',ar:'يسمع'}, 3:{en:'Watching',ar:'يشاهد'}, 5:{en:'Competing in',ar:'يتنافس في'} }[act.type] || {en:'',ar:''};
+        OWNER.activity = {
+          type: 'activity',
+          text: { en: `${typeLabel.en} ${act.name}`.trim(), ar: `${typeLabel.ar} ${act.name}`.trim() },
+          sub: act.details || ''
+        };
+      }
+    }
+
     updateOwnerDisplay();
     renderProfileModal();
   }catch(err){
@@ -1139,11 +1226,28 @@ fetchLanyardData();
 setInterval(fetchLanyardData, 60000); // تحديث كل دقيقة
 
 /* ---------- Profile popout (Discord-style) ---------- */
-const BADGE_ICONS = {
-  check: { cls:'badge-check', svg:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12.5l2 2 4-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
-  gear:  { cls:'badge-gear',  svg:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" stroke="#fff" stroke-width="1.7"/><path d="M19.4 13.5a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19.5a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H4.5a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H10.5a1.65 1.65 0 0 0 1-1.51V4.5a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V10.5a1.65 1.65 0 0 0 1.51 1H19.5a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
-  gem:   { cls:'badge-gem',   svg:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3h12l3 6-9 12L3 9l3-6Z" fill="#fff" fill-opacity=".9"/></svg>' }
-};
+// شارات ديسكورد الحقيقية — تُفكّ من public_flags (bitfield) اللي يرجعه Lanyard من حساب ديسكورد نفسه
+// إذا حسابك ما فيه شارات رسمية، الصف بيطلع فاضي — لأنه صار حقيقي 100% مو وهمي
+const DISCORD_BADGE_FLAGS = [
+  { bit: 1<<0,  key:'staff',      label:{en:'Discord Staff',ar:'موظف ديسكورد'},        color:'#5865F2', svg:'<path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4L12 2Z" fill="#fff"/>' },
+  { bit: 1<<1,  key:'partner',    label:{en:'Partnered Server Owner',ar:'مالك سيرفر بارتنر'}, color:'#5865F2', svg:'<path d="M12 2l3 5 5.5.8-4 3.9 1 5.5L12 14.8 6.5 17.2l1-5.5-4-3.9L9 7Z" fill="#fff"/>' },
+  { bit: 1<<2,  key:'hypesquad',  label:{en:'HypeSquad Events',ar:'HypeSquad Events'}, color:'#f4b30d', svg:'<path d="M12 3l7 4v6c0 4-3 7-7 8-4-1-7-4-7-8V7Z" fill="#fff"/>' },
+  { bit: 1<<3,  key:'bughunter1', label:{en:'Bug Hunter',ar:'صائد أخطاء'},             color:'#3ba55d', svg:'<path d="M9 12.5l2 2 4-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' },
+  { bit: 1<<6,  key:'bravery',    label:{en:'HypeSquad Bravery',ar:'HypeSquad Bravery'}, color:'#9b59b6', svg:'<path d="M12 3l7 4v6c0 4-3 7-7 8-4-1-7-4-7-8V7Z" fill="#fff"/>' },
+  { bit: 1<<7,  key:'brilliance', label:{en:'HypeSquad Brilliance',ar:'HypeSquad Brilliance'}, color:'#e67e22', svg:'<path d="M12 3l7 4v6c0 4-3 7-7 8-4-1-7-4-7-8V7Z" fill="#fff"/>' },
+  { bit: 1<<8,  key:'balance',    label:{en:'HypeSquad Balance',ar:'HypeSquad Balance'}, color:'#2ecc71', svg:'<path d="M12 3l7 4v6c0 4-3 7-7 8-4-1-7-4-7-8V7Z" fill="#fff"/>' },
+  { bit: 1<<9,  key:'early',      label:{en:'Early Supporter',ar:'داعم مبكر'},          color:'#ff73fa', svg:'<path d="M12 2c3 4 7 7 7 12a7 7 0 1 1-14 0c0-5 4-8 7-12Z" fill="#fff"/>' },
+  { bit: 1<<14, key:'bughunter2', label:{en:'Bug Hunter Gold',ar:'صائد أخطاء ذهبي'},    color:'#f1c40f', svg:'<path d="M9 12.5l2 2 4-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' },
+  { bit: 1<<16, key:'verifiedbot',label:{en:'Verified Bot',ar:'بوت موثّق'},             color:'#5865F2', svg:'<path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' },
+  { bit: 1<<17, key:'earlydev',   label:{en:'Early Verified Bot Developer',ar:'مطور بوت موثق مبكر'}, color:'#5865F2', svg:'<path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" stroke="#fff" stroke-width="1.7"/><path d="M19.4 13.5a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19.5a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H4.5a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H10.5a1.65 1.65 0 0 0 1-1.51V4.5a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V10.5a1.65 1.65 0 0 0 1.51 1H19.5a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>' },
+  { bit: 1<<18, key:'certmod',    label:{en:'Certified Moderator',ar:'مشرف معتمد'},     color:'#5865F2', svg:'<path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7Z" fill="#fff"/>' },
+  { bit: 1<<22, key:'activedev',  label:{en:'Active Developer',ar:'مطوّر نشط'},         color:'#3ba55d', svg:'<path d="M8 9l-3 3 3 3M16 9l3 3-3 3M13 6l-2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' }
+];
+
+function decodeDiscordBadges(publicFlags){
+  if(!publicFlags || typeof publicFlags !== 'number') return [];
+  return DISCORD_BADGE_FLAGS.filter(b => (publicFlags & b.bit) === b.bit);
+}
 
 const STATUS_BADGE_ICON = {
   online:  '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="6" fill="#fff"/></svg>',
@@ -1163,16 +1267,41 @@ function renderProfileModal(){
   statusBadge.className = 'profile-status-badge status-' + status;
   statusBadge.innerHTML = STATUS_BADGE_ICON[status] || STATUS_BADGE_ICON.offline;
 
+  const bannerEl = document.getElementById('profileBanner');
+  if(OWNER_PROFILE.bannerUrl){
+    bannerEl.style.backgroundImage = `url(${OWNER_PROFILE.bannerUrl})`;
+  } else {
+    bannerEl.style.backgroundImage = 'none';
+  }
+
   const badgesWrap = document.getElementById('profileBadges');
   badgesWrap.innerHTML = '';
-  (OWNER_PROFILE.badges || []).forEach(key=>{
-    const def = BADGE_ICONS[key];
-    if(!def) return;
+  (OWNER.realBadges || []).forEach(b=>{
     const el = document.createElement('span');
-    el.className = 'profile-badge ' + def.cls;
-    el.innerHTML = def.svg;
+    el.className = 'profile-badge crown-wrap';
+    el.dataset.tooltip = b.label[currentLang] || b.label.en;
+    el.style.background = b.color;
+    el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">${b.svg}</svg>`;
     badgesWrap.appendChild(el);
   });
+
+  const activityWrap = document.getElementById('profileActivity');
+  if(OWNER.activity){
+    activityWrap.style.display = 'flex';
+    document.getElementById('profileActivityMain').textContent = OWNER.activity.text[currentLang] || OWNER.activity.text.en;
+    document.getElementById('profileActivitySub').textContent = OWNER.activity.sub || '';
+  } else {
+    activityWrap.style.display = 'none';
+  }
+
+  const noteWrap = document.getElementById('profileNoteWrap');
+  const noteText = (OWNER_PROFILE.note && OWNER_PROFILE.note[currentLang]) || '';
+  if(noteText){
+    noteWrap.style.display = 'block';
+    document.getElementById('profileNote').textContent = noteText;
+  } else {
+    noteWrap.style.display = 'none';
+  }
 }
 
 function openProfileModal(){
