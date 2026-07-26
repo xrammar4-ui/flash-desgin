@@ -528,93 +528,111 @@
     max-width:420px; margin-left:auto; margin-right:auto;
   }
 
-  /* ============ PROFILE MODAL ============ */
+  /* ============ PROFILE POPOUT (Discord-style card) ============ */
   .profile-modal-overlay{
     position:fixed; inset:0; z-index:300;
-    background:rgba(2,0,0,.7);
-    backdrop-filter:blur(8px);
+    background:rgba(2,0,0,.55);
+    backdrop-filter:blur(6px);
     display:flex; align-items:center; justify-content:center;
     padding:20px;
     opacity:0; visibility:hidden;
-    transition:opacity .25s ease, visibility .25s ease;
+    transition:opacity .2s ease, visibility .2s ease;
   }
   .profile-modal-overlay.open{ opacity:1; visibility:visible; }
   .profile-card{
-    width:380px; max-width:100%;
-    background:var(--bg-1);
-    border:1px solid var(--glass-brd);
-    border-radius:20px;
+    width:300px; max-width:100%;
+    background:#0e0e10;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:14px;
     overflow:hidden;
-    box-shadow:0 30px 90px rgba(0,0,0,.65);
+    box-shadow:0 24px 70px rgba(0,0,0,.6);
     text-align:left; direction:ltr;
-    transform:translateY(24px) scale(.96);
-    transition:transform .3s ease;
+    transform:translateY(16px) scale(.97);
+    transition:transform .25s ease;
     max-height:88vh;
     display:flex; flex-direction:column;
   }
   .profile-modal-overlay.open .profile-card{ transform:translateY(0) scale(1); }
   .profile-scroll{ overflow-y:auto; }
-  .profile-banner{
-    height:120px; flex-shrink:0;
-    background-size:cover; background-position:center;
-    background:linear-gradient(135deg, var(--bg-2), var(--red-900) 55%, var(--red-700) 100%);
-    position:relative;
+
+  .profile-topbar{
+    display:flex; align-items:center; gap:8px;
+    padding:12px 14px 0;
   }
-  .profile-close{
-    position:absolute; top:12px; right:12px;
-    width:32px; height:32px; border-radius:50%;
-    background:rgba(0,0,0,.5);
-    border:1px solid rgba(255,255,255,.2);
+  .profile-back{
+    width:22px; height:22px; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.06);
+    flex-shrink:0;
     transition:.2s;
   }
-  .profile-close:hover{ background:rgba(0,0,0,.75); }
-  .profile-close svg{ width:14px; height:14px; }
-  .profile-avatar-wrap{ padding:0 20px; position:relative; }
+  .profile-back:hover{ background:rgba(255,255,255,.14); }
+  .profile-back svg{ width:11px; height:11px; }
+  .profile-topbar-label{
+    font-size:12.5px; font-weight:700; color:rgba(255,255,255,.45);
+  }
+
+  .profile-body{ padding:16px 16px 18px; }
+  .profile-avatar-row{ display:flex; align-items:center; gap:12px; }
+  .profile-avatar-wrap{ position:relative; flex-shrink:0; }
   .profile-avatar{
-    width:92px; height:92px; border-radius:50%;
-    border:6px solid var(--bg-1);
+    width:56px; height:56px; border-radius:50%;
+    border:2px solid rgba(255,255,255,.1);
     object-fit:cover;
-    margin-top:-46px;
     background:#2a0505;
-    box-shadow:0 6px 20px rgba(0,0,0,.4);
     display:block;
   }
-  .profile-status-dot{
-    position:absolute; left:88px; bottom:2px;
-    width:22px; height:22px; border-radius:50%;
-    background:#3ba55d; border:5px solid var(--bg-1);
+  .profile-status-badge{
+    position:absolute; right:-2px; bottom:-2px;
+    width:20px; height:20px; border-radius:50%;
+    background:#80848e;
+    border:3px solid #0e0e10;
+    display:flex; align-items:center; justify-content:center;
   }
-  .profile-body{ padding:12px 20px 22px; }
-  .profile-name-row{ display:flex; align-items:center; gap:8px; margin-top:2px; flex-wrap:wrap; }
-  .profile-name{ font-size:18px; font-weight:800; color:#fff; }
-  .profile-tag{ font-size:12.5px; color:rgba(255,255,255,.5); font-weight:700; margin-top:2px; }
-  .profile-badges{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .profile-status-badge svg{ width:9px; height:9px; }
+  .profile-status-badge.status-online{ background:#3ba55d; }
+  .profile-status-badge.status-idle{ background:#faa61a; }
+  .profile-status-badge.status-dnd{ background:#ed4245; }
+  .profile-status-badge.status-offline{ background:#80848e; }
+
+  .owner-avatar-wrap{ position:relative; flex-shrink:0; display:inline-block; }
+  .owner-status-dot{
+    position:absolute; right:-1px; bottom:-1px;
+    width:15px; height:15px; border-radius:50%;
+    background:#80848e;
+    border:3px solid var(--bg-1);
+  }
+  .owner-status-dot.status-online{ background:#3ba55d; }
+  .owner-status-dot.status-idle{ background:#faa61a; }
+  .owner-status-dot.status-dnd{ background:#ed4245; }
+  .owner-status-dot.status-offline{ background:#80848e; }
+
+  .profile-name-col{ min-width:0; }
+  .profile-name-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .profile-name{
+    font-size:15px; font-weight:900; letter-spacing:.3px; color:#fff;
+    text-transform:uppercase;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .profile-subline{
+    display:flex; align-items:center; gap:6px; margin-top:3px;
+    font-size:12.5px; font-weight:700; color:rgba(255,255,255,.55);
+    direction:rtl; flex-wrap:wrap;
+  }
+  .profile-subline .tag{ direction:ltr; color:rgba(255,255,255,.55); }
+  .profile-subline .sep{ color:rgba(255,255,255,.3); }
+  .profile-subline .status-text{ color:rgba(255,255,255,.6); }
+
+  .profile-badges{ display:flex; gap:7px; margin-top:12px; }
   .profile-badge{
-    width:32px; height:32px; border-radius:9px;
-    background:rgba(255,255,255,.06);
-    border:1px solid var(--glass-brd);
+    width:26px; height:26px; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
     position:relative;
   }
-  .profile-badge svg{ width:16px; height:16px; }
-  .profile-divider{ height:1px; background:rgba(255,255,255,.08); margin:16px 0; }
-  .profile-section-title{
-    font-size:11px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
-    color:rgba(255,255,255,.4); margin-bottom:8px;
-  }
-  .profile-about{ font-size:13.5px; line-height:1.65; color:var(--dim); font-weight:600; }
-  .profile-note{
-    font-size:13px; line-height:1.6; color:rgba(255,255,255,.6); font-style:italic;
-    background:rgba(255,255,255,.04);
-    padding:10px 12px; border-radius:10px;
-    border:1px solid var(--glass-brd);
-  }
-  .profile-meta{
-    display:flex; align-items:center; gap:8px; margin-top:16px;
-    font-size:12px; color:rgba(255,255,255,.45); font-weight:600;
-  }
-  .profile-meta svg{ width:14px; height:14px; flex-shrink:0; }
+  .profile-badge svg{ width:15px; height:15px; }
+  .profile-badge.badge-check{ background:#23272a; }
+  .profile-badge.badge-gear{ background:#5865F2; }
+  .profile-badge.badge-gem{ background:linear-gradient(135deg,#8e5bff,#5865F2); }
 </style>
 </head>
 <body>
@@ -692,7 +710,10 @@
       <div class="tagline-sub" data-i18n="tagline">Design isn't just an image — it's a meaning only designers understand.</div>
 
       <div class="owner-card">
-        <img class="owner-avatar" id="ownerAvatar" src="" alt="Owner avatar">
+        <div class="owner-avatar-wrap">
+          <img class="owner-avatar" id="ownerAvatar" src="" alt="Owner avatar">
+          <span class="owner-status-dot" id="ownerStatusDot"></span>
+        </div>
         <div>
           <div class="owner-name-row">
             <span class="owner-name" id="ownerName"></span>
@@ -813,40 +834,33 @@
     <div class="profile-modal-overlay" id="profileModal">
       <div class="profile-card">
         <div class="profile-scroll">
-          <div class="profile-banner" id="profileBanner">
-            <button class="profile-close" id="profileClose" aria-label="Close">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="profile-topbar">
+            <button class="profile-back" id="profileClose" aria-label="Close">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 5l-7 7 7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-          </div>
-          <div class="profile-avatar-wrap">
-            <img class="profile-avatar" id="profileAvatar" src="" alt="">
-            <span class="profile-status-dot"></span>
+            <span class="profile-topbar-label" data-i18n="profile_brand">Flash x design</span>
           </div>
           <div class="profile-body">
-            <div class="profile-name-row">
-              <span class="profile-name" id="profileName"></span>
-              <span class="crown-wrap" data-tooltip="Server Owner">
-                <svg class="owner-crown" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3 8L7 12L12 5L17 12L21 8L19 18H5L3 8Z" fill="#ffd23f" stroke="#b8860b" stroke-width="0.6"/>
-                </svg>
-              </span>
+            <div class="profile-avatar-row">
+              <div class="profile-avatar-wrap">
+                <img class="profile-avatar" id="profileAvatar" src="" alt="">
+                <span class="profile-status-badge">
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 12h12" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>
+                </span>
+              </div>
+              <div class="profile-name-col">
+                <div class="profile-name-row">
+                  <span class="profile-name" id="profileName"></span>
+                </div>
+                <div class="profile-subline">
+                  <span class="tag" id="profileTag"></span>
+                  <span class="sep">•</span>
+                  <span class="status-text" id="profileStatusText"></span>
+                </div>
+              </div>
             </div>
-            <div class="profile-tag" id="profileTag"></div>
 
             <div class="profile-badges" id="profileBadges"></div>
-
-            <div class="profile-divider"></div>
-            <div class="profile-section-title" data-i18n="profile_about_title">About Me</div>
-            <div class="profile-about" id="profileAbout"></div>
-
-            <div class="profile-divider"></div>
-            <div class="profile-section-title" data-i18n="profile_note_title">Note</div>
-            <div class="profile-note" id="profileNote"></div>
-
-            <div class="profile-meta">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-              <span id="profileMeta"></span>
-            </div>
           </div>
         </div>
       </div>
@@ -861,31 +875,26 @@
 // رابط سيرفر الديسكورد حقك — يفتح لما تنضغط اطلب الآن / انضم
 const DISCORD_LINK = "https://discord.gg/GQx6kBQws9";
 
-// بيانات المالك — عدّل هذا القسم ببياناتك الحقيقية
+// آيدي ديسكورد حق المالك — يُستخدم مع Lanyard عشان تجيب الحالة والصورة لايف
+// لازم تكون عضو بسيرفر Lanyard: https://discord.gg/lanyard حتى تشتغل الخدمة
+const LANYARD_USER_ID = "1350283008896401449";
+
+// بيانات المالك — تُستخدم كقيم مبدئية/احتياطية، وبيتم تحديث الاسم/التاق/الصورة/الحالة تلقائياً من Lanyard إذا نجح الاتصال
 const OWNER = {
   name: "ABUALSOOF",
   username: "@xg9r",
-  avatar: "https://cdn.discordapp.com/attachments/1379961963664375940/1530995013004169396/d8be15f0ebac237cee195eeeec21bc10.jpg?ex=6a6799b7&is=6a664837&hm=2ad49a26fd7e7a1ce4316ed2fd4171700d0130325b5aca22910a55da2d39a7a4&"
+  avatar: "https://cdn.discordapp.com/attachments/1379961963664375940/1530995013004169396/d8be15f0ebac237cee195eeeec21bc10.jpg?ex=6a6799b7&is=6a664837&hm=2ad49a26fd7e7a1ce4316ed2fd4171700d0130325b5aca22910a55da2d39a7a4&",
+  status: "offline" // online / idle / dnd / offline — يتحدث تلقائي من Lanyard
 };
 
-// البروفايل الكامل اللي يظهر لما تنضغط صورة المالك — عدّل النص/البنر/الشارات براحتك
+// بروفايل المالك اللي يظهر لما تنضغط صورته — نسخة مصغّرة على شكل ديسكورد
 const OWNER_PROFILE = {
-  banner: "", // ضع رابط صورة بنر هنا، واتركه فاضي لتدرج لوني تلقائي حسب الثيم
-  tag: "Owner",
-  memberSince: { en: "Member since 2025", ar: "عضو منذ 2025" },
-  about: {
-    en: "Founder & lead designer of flash https://discord.gg/aaymsFe65",
-    ar: "مؤسس ومصمم رئيسي في flash , https://discord.gg/aaymsFe65"
+  tag: "xg9r",
+  statusText: {
+    en: "Willpower without determination",
+    ar: "الارادة تكون بلا عزيمة"
   },
-  note: {
-    en: "Open for orders daily — join the server and send your request anytime.",
-    ar: "متاح للطلبات يومياً — انضم للسيرفر وابعت طلبك بأي وقت."
-  },
-  badges: [
-    { icon:"crown",    label:{ en:"Server Owner", ar:"مالك السيرفر" } },
-    { icon:"designer", label:{ en:"Designer",     ar:"مصمم" } },
-    { icon:"verified", label:{ en:"Verified",     ar:"موثّق" } }
-  ]
+  badges: ["check", "gear", "gem"]
 };
 
 // صور الأعمال — أضف روابط صورك هنا بالترتيب اللي تريده
@@ -939,8 +948,7 @@ const translations = {
     settings_title: "Settings",
     settings_sub: "Pick a color theme for the site",
     settings_note: "Your chosen theme is saved on this device and will stay applied next time you visit.",
-    profile_about_title: "About Me",
-    profile_note_title: "Note"
+    profile_brand: "Flash x design"
   },
   ar: {
     nav_home: "التعريف",
@@ -972,8 +980,7 @@ const translations = {
     settings_title: "الإعدادات",
     settings_sub: "اختر ثيم الألوان الذي يناسب الموقع",
     settings_note: "الثيم اللي تختاره يتحفظ على جهازك وبيضل مفعّل بزيارتك الجايه.",
-    profile_about_title: "نبذة عني",
-    profile_note_title: "نوت"
+    profile_brand: "Flash x design"
   }
 };
 
@@ -1071,53 +1078,99 @@ function renderThemeGrid(){
 // Apply the saved theme immediately (before first paint of colors) without re-saving it
 applyTheme(getSavedTheme(), false);
 
-/* Owner setup */
-if(OWNER.name){
-  document.getElementById('ownerName').textContent = OWNER.name;
+/* Owner setup (initial paint with fallback values, before Lanyard responds) */
+function updateOwnerDisplay(){
+  if(OWNER.name){
+    document.getElementById('ownerName').textContent = OWNER.name;
+  }
+  if(OWNER.avatar){
+    document.getElementById('ownerAvatar').src = OWNER.avatar;
+    document.getElementById('ownerAvatar').style.display = '';
+  } else {
+    document.getElementById('ownerAvatar').style.display = 'none';
+  }
+  if(OWNER.username){
+    document.getElementById('ownerUsername').textContent = OWNER.username;
+  }
+  const dot = document.getElementById('ownerStatusDot');
+  dot.className = 'owner-status-dot status-' + (OWNER.status || 'offline');
 }
-if(OWNER.avatar){
-  document.getElementById('ownerAvatar').src = OWNER.avatar;
-} else {
-  document.getElementById('ownerAvatar').style.display = 'none';
-}
-if(OWNER.username){
-  document.getElementById('ownerUsername').textContent = OWNER.username;
+updateOwnerDisplay();
+
+/* ---------- Lanyard live status/avatar sync ---------- */
+function lanyardAvatarUrl(user){
+  if(!user || !user.avatar) return null;
+  const ext = user.avatar.startsWith('a_') ? 'gif' : 'png';
+  return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${ext}?size=256`;
 }
 
-/* ---------- Full profile modal ---------- */
+async function fetchLanyardData(){
+  if(!LANYARD_USER_ID) return;
+  try{
+    const res = await fetch(`https://api.lanyard.rest/v1/users/${LANYARD_USER_ID}`);
+    if(!res.ok) throw new Error('bad response');
+    const json = await res.json();
+    if(!json.success) throw new Error('lanyard error');
+    const data = json.data;
+    const user = data.discord_user || {};
+
+    const avatarUrl = lanyardAvatarUrl(user);
+    if(avatarUrl) OWNER.avatar = avatarUrl;
+
+    if(user.global_name) OWNER.name = user.global_name.toUpperCase();
+    else if(user.username) OWNER.name = user.username.toUpperCase();
+
+    if(user.username){
+      OWNER.username = '@' + user.username;
+      OWNER_PROFILE.tag = user.username;
+    }
+
+    if(data.discord_status) OWNER.status = data.discord_status;
+
+    updateOwnerDisplay();
+    renderProfileModal();
+  }catch(err){
+    // إذا فشل الاتصال (مثلاً مو عضو بسيرفر Lanyard) بتفضل القيم الاحتياطية بالأعلى
+    console.warn('Lanyard fetch failed, using fallback OWNER data.', err);
+  }
+}
+
+fetchLanyardData();
+setInterval(fetchLanyardData, 60000); // تحديث كل دقيقة
+
+/* ---------- Profile popout (Discord-style) ---------- */
 const BADGE_ICONS = {
-  crown: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 8L7 12L12 5L17 12L21 8L19 18H5L3 8Z" fill="#ffd23f" stroke="#b8860b" stroke-width="0.6"/></svg>',
-  designer: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4L12 2Z" fill="#ff5b5b"/></svg>',
-  verified: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9" fill="#5865F2"/><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  booster: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2c3 4 7 7 7 12a7 7 0 1 1-14 0c0-5 4-8 7-12Z" fill="#ff73fa"/></svg>'
+  check: { cls:'badge-check', svg:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12.5l2 2 4-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+  gear:  { cls:'badge-gear',  svg:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" stroke="#fff" stroke-width="1.7"/><path d="M19.4 13.5a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19.5a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H4.5a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H10.5a1.65 1.65 0 0 0 1-1.51V4.5a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V10.5a1.65 1.65 0 0 0 1.51 1H19.5a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+  gem:   { cls:'badge-gem',   svg:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3h12l3 6-9 12L3 9l3-6Z" fill="#fff" fill-opacity=".9"/></svg>' }
+};
+
+const STATUS_BADGE_ICON = {
+  online:  '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="6" fill="#fff"/></svg>',
+  idle:    '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="13" cy="10" r="7" fill="#0e0e10"/><circle cx="10" cy="12" r="7" fill="#fff"/></svg>',
+  dnd:     '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 12h12" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>',
+  offline: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="5" fill="#fff" fill-opacity=".9"/></svg>'
 };
 
 function renderProfileModal(){
   document.getElementById('profileAvatar').src = OWNER.avatar || '';
   document.getElementById('profileName').textContent = OWNER.name || '';
-  document.getElementById('profileTag').textContent = OWNER.username || OWNER_PROFILE.tag || '';
+  document.getElementById('profileTag').textContent = OWNER_PROFILE.tag || '';
+  document.getElementById('profileStatusText').textContent = (OWNER_PROFILE.statusText && OWNER_PROFILE.statusText[currentLang]) || '';
 
-  const bannerEl = document.getElementById('profileBanner');
-  if(OWNER_PROFILE.banner){
-    bannerEl.style.backgroundImage = `url(${OWNER_PROFILE.banner})`;
-  }
-
-  const aboutEl = document.getElementById('profileAbout');
-  aboutEl.textContent = (OWNER_PROFILE.about && OWNER_PROFILE.about[currentLang]) || '';
-
-  const noteEl = document.getElementById('profileNote');
-  noteEl.textContent = (OWNER_PROFILE.note && OWNER_PROFILE.note[currentLang]) || '';
-
-  const metaEl = document.getElementById('profileMeta');
-  metaEl.textContent = (OWNER_PROFILE.memberSince && OWNER_PROFILE.memberSince[currentLang]) || '';
+  const statusBadge = document.querySelector('.profile-status-badge');
+  const status = OWNER.status || 'offline';
+  statusBadge.className = 'profile-status-badge status-' + status;
+  statusBadge.innerHTML = STATUS_BADGE_ICON[status] || STATUS_BADGE_ICON.offline;
 
   const badgesWrap = document.getElementById('profileBadges');
   badgesWrap.innerHTML = '';
-  (OWNER_PROFILE.badges || []).forEach(b=>{
+  (OWNER_PROFILE.badges || []).forEach(key=>{
+    const def = BADGE_ICONS[key];
+    if(!def) return;
     const el = document.createElement('span');
-    el.className = 'profile-badge crown-wrap';
-    el.dataset.tooltip = (b.label && b.label[currentLang]) || '';
-    el.innerHTML = BADGE_ICONS[b.icon] || '';
+    el.className = 'profile-badge ' + def.cls;
+    el.innerHTML = def.svg;
     badgesWrap.appendChild(el);
   });
 }
