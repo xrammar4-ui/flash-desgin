@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>flash desgin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Unbounded:wght@500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#050101;
+    --bg-1:#170303;
+    --bg-2:#3a0202;
+    --red-900:#4a0000;
+    --red-700:#8a0505;
+    --red-600:#b30d0d;
+    --red-500:#d81212;
+    --red-glow:#ff2b2b;
+    --white:#f6f1ee;
+    --dim:#e7c9c9;
+    --glass:rgba(255,255,255,.06);
+    --glass-brd:rgba(255,255,255,.16);
+    --glass-brd-2:rgba(255,255,255,.28);
+    --shadow-red: 0 0 40px rgba(216,18,18,.35);
+    --font-ar:'Cairo',sans-serif;
+    --font-en:'Unbounded',sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    height:100%;
+    background:radial-gradient(120% 120% at 30% 0%, var(--bg-2) 0%, var(--bg-1) 45%, var(--black) 100%);
+    color:var(--white);
+    font-family:var(--font-ar);
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--red-600); color:#fff;}
+  a{color:inherit; text-decoration:none;}
+  button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit;}
+
+  /* ============ LOADER ============ */
+  #loader{
+    position:fixed; inset:0; z-index:999;
+    background:#020000;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    gap:26px;
+    transition:opacity .7s ease, visibility .7s ease;
+  }
+  #loader.hide{opacity:0; visibility:hidden; pointer-events:none;}
+  .loader-mark{
+    width:150px; height:90px;
+    filter:drop-shadow(0 0 18px rgba(255,40,40,.75)) drop-shadow(0 0 40px rgba(255,0,0,.35));
+    animation:markPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes markPulse{
+    0%,100%{ transform:scale(1) rotate(0deg); }
+    50%{ transform:scale(1.08) rotate(-2deg); }
+  }
+  .loader-track{
+    width:220px; height:2px; border-radius:2px;
+    background:rgba(255,255,255,.12);
+    overflow:hidden;
+    position:relative;
+  }
+  .loader-bar{
+    position:absolute; top:0; left:0; height:100%;
+    width:0%;
+    background:#ffffff;
+    box-shadow:0 0 8px rgba(255,255,255,.9), 0 0 20px rgba(255,255,255,.5);
+    transition:width .3s ease-out;
+  }
+  .loader-txt{
+    font-family:var(--font-en);
+    font-size:11px; letter-spacing:3px; text-transform:uppercase;
+    color:rgba(255,255,255,.4);
+  }
+
+  /* ============ APP SHELL ============ */
+  #app{ opacity:0; transition:opacity .8s ease; }
+  #app.show{ opacity:1; }
+
+  .bg-sparks{
+    position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+  }
+  .bg-sparks svg{
+    position:absolute; opacity:.14;
+    filter:drop-shadow(0 0 12px rgba(255,40,40,.6));
+    animation:float 9s ease-in-out infinite;
+  }
+  @keyframes float{
+    0%,100%{ transform:translateY(0) rotate(0deg); }
+    50%{ transform:translateY(-26px) rotate(8deg); }
+  }
+
+  /* ============ NAV ============ */
+  nav{
+    position:fixed; top:22px; left:50%; transform:translateX(-50%);
+    z-index:50;
+    display:flex; gap:6px;
+    padding:6px;
+    background:rgba(15,3,3,.55);
+    border:1px solid var(--glass-brd);
+    border-radius:999px;
+    backdrop-filter:blur(14px);
+    box-shadow:0 8px 30px rgba(0,0,0,.4);
+  }
+  nav button{
+    padding:10px 22px;
+    border-radius:999px;
+    font-size:14px; font-weight:700;
+    color:var(--dim);
+    transition:.35s;
+    white-space:nowrap;
+  }
+  nav button.active{
+    background:linear-gradient(135deg,var(--red-700),var(--red-600));
+    color:#fff;
+    box-shadow:0 4px 18px rgba(216,18,18,.45);
+  }
+  nav button:not(.active):hover{ color:#fff; }
+
+  section.page{
+    display:none;
+    min-height:100vh;
+    padding:150px 6vw 80px;
+    position:relative;
+    z-index:2;
+    animation:pageIn .55s ease;
+  }
+  section.page.active{ display:block; }
+  @keyframes pageIn{
+    from{ opacity:0; transform:translateY(14px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  /* ============ HOME ============ */
+  #home.active{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:26px; }
+  .hero-mark{
+    width:150px; height:90px;
+    filter:drop-shadow(0 0 22px rgba(255,30,30,.7)) drop-shadow(0 0 55px rgba(255,0,0,.3));
+    animation:markPulse 4s ease-in-out infinite;
+  }
+  .wordmark{
+    font-family:var(--font-en);
+    font-size:clamp(48px,9vw,110px);
+    font-weight:800;
+    letter-spacing:-2px;
+    line-height:1;
+    background:linear-gradient(180deg,#ffffff 0%, #ffd7d7 55%, var(--red-glow) 130%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    direction:ltr;
+    text-shadow:0 0 60px rgba(255,20,20,.25);
+  }
+  .tagline{
+    font-size:clamp(16px,2.4vw,22px);
+    font-weight:700;
+    color:var(--dim);
+    max-width:600px;
+  }
+  .tagline-sub{
+    font-size:13px;
+    font-weight:600;
+    color:rgba(255,255,255,.4);
+    max-width:480px;
+  }
+  .hero-divider{
+    width:70px; height:3px; border-radius:3px;
+    background:linear-gradient(90deg,transparent,var(--red-glow),transparent);
+    margin:6px 0;
+  }
+
+  .owner-card{
+    margin-top:34px;
+    display:flex; align-items:center; gap:16px;
+    padding:14px 22px 14px 26px;
+    background:var(--glass);
+    border:1px solid var(--glass-brd);
+    border-radius:20px;
+    backdrop-filter:blur(12px);
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  .owner-label{
+    font-family:var(--font-en);
+    font-size:10px; letter-spacing:2px; text-transform:uppercase;
+    color:rgba(255,255,255,.45);
+    position:absolute; top:-20px; right:4px;
+  }
+  .owner-card{ position:relative; }
+  .owner-avatar{
+    width:54px; height:54px; border-radius:50%;
+    object-fit:cover;
+    border:2px solid var(--red-glow);
+    box-shadow:0 0 16px rgba(255,30,30,.5);
+    background:#2a0505;
+  }
+  .owner-name-row{ display:flex; align-items:center; gap:8px; }
+  .owner-name{ font-weight:800; font-size:16px; }
+  .owner-crown{ width:18px; height:18px; filter:drop-shadow(0 0 6px rgba(255,200,0,.6)); }
+  .owner-role{ font-size:12px; color:rgba(255,255,255,.5); font-weight:600; margin-top:2px; }
+
+  /* ============ PRICING ============ */
+  .page-title{
+    text-align:center; margin-bottom:10px;
+    font-size:clamp(28px,4vw,42px); font-weight:800;
+  }
+  .page-sub{
+    text-align:center; color:rgba(255,255,255,.5); font-size:14px; margin-bottom:50px;
+  }
+  .pricing-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:22px;
+    max-width:1100px; margin:0 auto;
+  }
+  @media (max-width:900px){ .pricing-grid{ grid-template-columns:1fr; } }
+
+  .price-card{
+    position:relative;
+    padding:34px 26px 30px;
+    background:linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+    border:1px solid var(--glass-brd);
+    border-radius:22px;
+    backdrop-filter:blur(10px);
+    box-shadow:0 12px 40px rgba(0,0,0,.4);
+    transition:.35s;
+    overflow:hidden;
+  }
+  .price-card::before{
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(circle at 50% -10%, rgba(255,30,30,.25), transparent 60%);
+    opacity:0; transition:.35s;
+  }
+  .price-card:hover{ transform:translateY(-8px); border-color:var(--glass-brd-2); }
+  .price-card:hover::before{ opacity:1; }
+  .price-card.featured{
+    border-color:rgba(255,60,60,.5);
+    box-shadow:0 0 0 1px rgba(255,60,60,.25), 0 20px 50px rgba(216,18,18,.25);
+  }
+  .price-badge{
+    position:absolute; top:16px; left:50%; transform:translateX(-50%);
+    font-family:var(--font-en); font-size:10px; letter-spacing:1.5px;
+    background:linear-gradient(135deg,var(--red-700),var(--red-glow));
+    padding:5px 14px; border-radius:999px; font-weight:700;
+  }
+  .price-tier{ font-size:20px; font-weight:800; text-align:center; margin-top:10px; }
+  .price-amount{
+    text-align:center; margin:14px 0 22px;
+    font-family:var(--font-en);
+    font-size:38px; font-weight:800;
+    direction:ltr;
+  }
+  .price-amount span{ font-size:15px; color:rgba(255,255,255,.5); font-weight:600; }
+  .price-list{ list-style:none; display:flex; flex-direction:column; gap:13px; }
+  .price-list li{
+    display:flex; align-items:center; gap:10px;
+    font-size:14.5px; font-weight:600; color:var(--dim);
+  }
+  .price-list svg{ width:16px; height:16px; flex-shrink:0; color:var(--red-glow); }
+  .price-list b{ color:#fff; font-weight:800; }
+
+  /* ============ PORTFOLIO ============ */
+  .carousel-wrap{
+    max-width:900px; margin:0 auto;
+    display:flex; align-items:center; gap:18px;
+    justify-content:center;
+  }
+  .car-btn{
+    width:50px; height:50px; border-radius:50%; flex-shrink:0;
+    background:var(--glass); border:1px solid var(--glass-brd);
+    display:flex; align-items:center; justify-content:center;
+    transition:.25s;
+  }
+  .car-btn:hover{ background:var(--red-700); border-color:var(--red-glow); box-shadow:0 0 20px rgba(255,30,30,.4); }
+  .car-btn svg{ width:20px; height:20px; }
+  .car-stage{
+    position:relative;
+    width:100%; max-width:680px; aspect-ratio:16/10;
+    border-radius:22px; overflow:hidden;
+    border:1px solid var(--glass-brd);
+    background:linear-gradient(160deg, rgba(255,255,255,.06), rgba(0,0,0,.3));
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .car-slide{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background-size:cover; background-position:center;
+    opacity:0; transition:opacity .5s ease;
+  }
+  .car-slide.active{ opacity:1; }
+  .car-placeholder{
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    color:rgba(255,255,255,.35); font-size:13px; font-weight:700;
+  }
+  .car-placeholder svg{ width:36px; height:36px; opacity:.5; }
+  .car-dots{
+    display:flex; justify-content:center; gap:8px; margin-top:20px;
+  }
+  .car-dot{ width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.25); transition:.25s; }
+  .car-dot.active{ background:var(--red-glow); width:20px; border-radius:4px; }
+
+  footer{
+    text-align:center; padding:26px; font-size:12px; color:rgba(255,255,255,.3);
+    position:relative; z-index:2;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ============ LOADER ============ -->
+  <div id="loader">
+    <svg class="loader-mark" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+      <path fill="#ffffff" d="M40,50 C25,50 20,35 17,12 C30,32 42,44 58,50 C98,60 152,20 188,4 C150,46 88,56 58,60 C43,63 33,78 28,98 C31,74 34,58 40,50 Z"/>
+    </svg>
+    <div class="loader-track"><div class="loader-bar" id="loaderBar"></div></div>
+    <div class="loader-txt">Loading</div>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app">
+
+    <div class="bg-sparks" id="bgSparks"></div>
+
+    <nav>
+      <button class="nav-btn active" data-page="home">التعريف</button>
+      <button class="nav-btn" data-page="pricing">اسعار الاعمال</button>
+      <button class="nav-btn" data-page="portfolio">الاعمال</button>
+    </nav>
+
+    <!-- ===== HOME ===== -->
+    <section class="page active" id="home">
+      <svg class="hero-mark" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#ffffff" d="M40,50 C25,50 20,35 17,12 C30,32 42,44 58,50 C98,60 152,20 188,4 C150,46 88,56 58,60 C43,63 33,78 28,98 C31,74 34,58 40,50 Z"/>
+      </svg>
+      <div class="wordmark">flash desgin</div>
+      <div class="hero-divider"></div>
+      <div class="tagline-sub">التصميم هو ليس صورة و بس، هو معنى لا يعرفه الا مصممين</div>
+
+      <div class="owner-card">
+        <span class="owner-label">Owner Of flash desgin</span>
+        <img class="owner-avatar" id="ownerAvatar" src="" alt="Owner avatar">
+        <div>
+          <div class="owner-name-row">
+            <span class="owner-name" id="ownerName">اسم المالك</span>
+            <svg class="owner-crown" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 8L7 12L12 5L17 12L21 8L19 18H5L3 8Z" fill="#ffd23f" stroke="#b8860b" stroke-width="0.6"/>
+            </svg>
+          </div>
+          <div class="owner-role">Server Owner</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PRICING ===== -->
+    <section class="page" id="pricing">
+      <div class="page-title">اسعار الاعمال</div>
+      <div class="page-sub">اختر الباقة التي تناسب سيرفرك</div>
+
+      <div class="pricing-grid">
+
+        <div class="price-card">
+          <div class="price-tier">Normal</div>
+          <div class="price-amount">30<span>m</span></div>
+          <ul class="price-list">
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>شعار السيرفر <b>Server logo</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>بنر السيرفر <b>Server banner</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>لاين <b>Line</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>معلومات <b>Info × 3</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>بوت <b>Bot × 1</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span><b>Welcome</b></span></li>
+          </ul>
+        </div>
+
+        <div class="price-card featured">
+          <div class="price-badge">الأكثر طلباً</div>
+          <div class="price-tier">Prime</div>
+          <div class="price-amount">80<span>m</span></div>
+          <ul class="price-list">
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>شعار السيرفر <b>Server logo</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>بنر السيرفر <b>Server banner</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>لاين <b>Line</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>معلومات <b>Info × 10</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>بوت <b>Bot × 6</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span><b>Welcome</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>بنر الدعوة <b>Invite banner</b></span></li>
+          </ul>
+        </div>
+
+        <div class="price-card">
+          <div class="price-tier">Medium</div>
+          <div class="price-amount">40<span>m</span></div>
+          <ul class="price-list">
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>شعار السيرفر <b>Server logo</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>بنر السيرفر <b>Server banner</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>لاين <b>Line</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>معلومات <b>Info × 6</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>بوت <b>Bot × 3</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span><b>Welcome</b></span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span>بنر الدعوة <b>Invite banner</b></span></li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== PORTFOLIO ===== -->
+    <section class="page" id="portfolio">
+      <div class="page-title">الاعمال</div>
+      <div class="page-sub">مجموعة من التصاميم السابقة</div>
+
+      <div class="carousel-wrap">
+        <button class="car-btn" id="carPrev" aria-label="السابق">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 6l-6 6 6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+
+        <div class="car-stage" id="carStage"></div>
+
+        <button class="car-btn" id="carNext" aria-label="التالي">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="car-dots" id="carDots"></div>
+    </section>
+
+    <footer>flash desgin &copy; 2026</footer>
+  </div>
+
+<script>
+/* =========================================================
+   إعدادات قابلة للتعديل — Editable settings
+   ========================================================= */
+
+// بيانات المالك — عدّل هذا القسم ببياناتك الحقيقية
+const OWNER = {
+  name: "اسم المالك",                 // اسم المستخدم الحقيقي حقك
+  avatar: ""                          // رابط صورة الافتار حقك (رابط مباشر لصورة)
+};
+
+// صور الأعمال — أضف روابط صورك هنا بالترتيب اللي تريده
+const PORTFOLIO_IMAGES = [
+  // "https://example.com/design1.png",
+  // "https://example.com/design2.png",
+];
+
+/* ========================================================= */
+
+document.getElementById('ownerName').textContent = OWNER.name;
+if(OWNER.avatar){
+  document.getElementById('ownerAvatar').src = OWNER.avatar;
+} else {
+  document.getElementById('ownerAvatar').style.display = 'none';
+}
+
+/* ---------- Loader ---------- */
+const bar = document.getElementById('loaderBar');
+let pct = 0;
+const loadInterval = setInterval(()=>{
+  pct += 5 + Math.random()*5;
+  if(pct >= 100){
+    pct = 100;
+    clearInterval(loadInterval);
+    setTimeout(()=>{
+      document.getElementById('loader').classList.add('hide');
+      document.getElementById('app').classList.add('show');
+    }, 350);
+  }
+  bar.style.width = pct + '%';
+}, 150);
+
+/* ---------- Nav ---------- */
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.page).classList.add('active');
+  });
+});
+
+/* ---------- Background floating sparkles ---------- */
+const sparkPath = 'M40,50 C25,50 20,35 17,12 C30,32 42,44 58,50 C98,60 152,20 188,4 C150,46 88,56 58,60 C43,63 33,78 28,98 C31,74 34,58 40,50 Z';
+const bgSparks = document.getElementById('bgSparks');
+for(let i=0;i<7;i++){
+  const size = 20 + Math.random()*50;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS,'svg');
+  svg.setAttribute('viewBox','0 0 200 100');
+  svg.setAttribute('width', size);
+  svg.setAttribute('height', size*0.5);
+  svg.style.top = Math.random()*100 + '%';
+  svg.style.left = Math.random()*100 + '%';
+  svg.style.animationDelay = (Math.random()*5) + 's';
+  svg.style.animationDuration = (7+Math.random()*6) + 's';
+  const path = document.createElementNS(svgNS,'path');
+  path.setAttribute('d', sparkPath);
+  path.setAttribute('fill', '#ff3333');
+  svg.appendChild(path);
+  bgSparks.appendChild(svg);
+}
+
+/* ---------- Carousel ---------- */
+const stage = document.getElementById('carStage');
+const dotsWrap = document.getElementById('carDots');
+let carIndex = 0;
+
+function placeholderSlide(){
+  const div = document.createElement('div');
+  div.className = 'car-slide active';
+  div.innerHTML = `<div class="car-placeholder">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="4" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+      <circle cx="8.5" cy="9.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M3 16l5-4 4 3 4-5 5 6" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+    <span>أضف روابط صورك في PORTFOLIO_IMAGES بالكود</span>
+  </div>`;
+  return div;
+}
+
+function renderCarousel(){
+  stage.innerHTML = '';
+  dotsWrap.innerHTML = '';
+
+  if(PORTFOLIO_IMAGES.length === 0){
+    stage.appendChild(placeholderSlide());
+    return;
+  }
+
+  PORTFOLIO_IMAGES.forEach((src, i)=>{
+    const slide = document.createElement('div');
+    slide.className = 'car-slide' + (i === carIndex ? ' active' : '');
+    slide.style.backgroundImage = `url(${src})`;
+    stage.appendChild(slide);
+
+    const dot = document.createElement('div');
+    dot.className = 'car-dot' + (i === carIndex ? ' active' : '');
+    dotsWrap.appendChild(dot);
+  });
+}
+
+document.getElementById('carPrev').addEventListener('click', ()=>{
+  if(PORTFOLIO_IMAGES.length === 0) return;
+  carIndex = (carIndex - 1 + PORTFOLIO_IMAGES.length) % PORTFOLIO_IMAGES.length;
+  renderCarousel();
+});
+document.getElementById('carNext').addEventListener('click', ()=>{
+  if(PORTFOLIO_IMAGES.length === 0) return;
+  carIndex = (carIndex + 1) % PORTFOLIO_IMAGES.length;
+  renderCarousel();
+});
+
+renderCarousel();
+</script>
+</body>
+</html>
