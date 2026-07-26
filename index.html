@@ -403,6 +403,12 @@
     content:''; position:absolute; inset:0;
     background:radial-gradient(circle at 50% -10%, rgba(255,30,30,.25), transparent 60%);
     opacity:0; transition:.35s;
+    pointer-events:none;
+    z-index:0;
+  }
+  .price-card > *{
+    position:relative;
+    z-index:1;
   }
   .price-card:hover{ transform:translateY(-8px); border-color:var(--glass-brd-2); }
   .price-card:hover::before{ opacity:1; }
