@@ -454,33 +454,46 @@
 
   /* ============ WORKS ============ */
   .carousel-wrap{
-    max-width:900px; margin:0 auto;
-    display:flex; align-items:center; gap:18px;
-    justify-content:center;
+    position:relative;
+    max-width:1100px; margin:0 auto;
+    padding:0 64px;
   }
   .car-btn{
+    position:absolute; top:50%; transform:translateY(-50%);
+    z-index:30;
     width:50px; height:50px; border-radius:50%; flex-shrink:0;
     background:var(--glass); border:1px solid var(--glass-brd);
     display:flex; align-items:center; justify-content:center;
     transition:.25s;
   }
+  .car-btn#carPrev{ left:0; }
+  .car-btn#carNext{ right:0; }
   .car-btn:hover{ background:var(--red-700); border-color:var(--red-glow); box-shadow:0 0 20px rgba(255,30,30,.4); }
   .car-btn svg{ width:20px; height:20px; }
   .car-stage{
     position:relative;
-    width:100%; max-width:680px; aspect-ratio:16/10;
+    width:100%;
+    height:380px;
+    perspective:1500px;
+  }
+  .car-slide{
+    position:absolute;
+    top:50%; left:50%;
+    width:62%;
+    aspect-ratio:16/10;
     border-radius:22px; overflow:hidden;
     border:1px solid var(--glass-brd);
     background:linear-gradient(160deg, rgba(255,255,255,.06), rgba(0,0,0,.3));
-    box-shadow:0 20px 60px rgba(0,0,0,.5);
-  }
-  .car-slide{
-    position:absolute; inset:0;
-    display:flex; align-items:center; justify-content:center;
     background-size:cover; background-position:center;
-    opacity:0; transition:opacity .5s ease;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+    transition:transform .55s cubic-bezier(.4,0,.2,1), opacity .55s ease, filter .55s ease;
+    will-change:transform;
+    display:flex; align-items:center; justify-content:center;
   }
-  .car-slide.active{ opacity:1; }
+  .car-slide.is-center{
+    border-color:rgba(255,60,60,.55);
+    box-shadow:0 0 0 1px rgba(255,60,60,.3), 0 25px 70px rgba(216,18,18,.35);
+  }
   .car-placeholder{
     display:flex; flex-direction:column; align-items:center; gap:10px;
     color:rgba(255,255,255,.35); font-size:13px; font-weight:700;
@@ -492,6 +505,12 @@
   }
   .car-dot{ width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.25); transition:.25s; }
   .car-dot.active{ background:var(--red-glow); width:20px; border-radius:4px; }
+
+  @media (max-width:720px){
+    .carousel-wrap{ padding:0 46px; }
+    .car-stage{ height:220px; }
+    .car-slide{ width:80%; }
+  }
 
   footer{
     text-align:center; padding:26px; font-size:12px; color:rgba(255,255,255,.3);
@@ -1402,7 +1421,7 @@ for(let i=0;i<7;i++){
   bgSparks.appendChild(svg);
 }
 
-/* ---------- Carousel ---------- */
+/* ---------- Carousel (3D coverflow) ---------- */
 const stage = document.getElementById('carStage');
 const dotsWrap = document.getElementById('carDots');
 let carIndex = 0;
@@ -1430,17 +1449,62 @@ function renderCarousel(){
     return;
   }
 
+  const total = PORTFOLIO_IMAGES.length;
+  const isMobile = window.innerWidth <= 720;
+  const step = isMobile ? 46 : 58;
+  const scaleStep = 0.17;
+  const rotateStep = 34;
+
   PORTFOLIO_IMAGES.forEach((src, i)=>{
+    let diff = i - carIndex;
+    if(diff > total/2) diff -= total;
+    if(diff < -total/2) diff += total;
+
+    const absDiff = Math.abs(diff);
     const slide = document.createElement('div');
-    slide.className = 'car-slide' + (i === carIndex ? ' active' : '');
+    slide.className = 'car-slide' + (diff === 0 ? ' is-center' : '');
     slide.style.backgroundImage = `url(${src})`;
+
+    if(absDiff > 2){
+      slide.style.display = 'none';
+    } else {
+      slide.style.display = 'flex';
+      const translateX = diff * step;
+      const scale = 1 - absDiff * scaleStep;
+      const rotate = -diff * rotateStep;
+      const z = 10 - absDiff;
+      const opacity = absDiff === 0 ? 1 : (absDiff === 1 ? 0.85 : 0.5);
+      const brightness = absDiff === 0 ? 1 : (absDiff === 1 ? 0.55 : 0.32);
+
+      slide.style.transform = `translate(-50%, -50%) translateX(${translateX}%) scale(${scale}) rotateY(${rotate}deg)`;
+      slide.style.zIndex = z;
+      slide.style.opacity = opacity;
+      slide.style.filter = `brightness(${brightness})`;
+
+      if(diff !== 0){
+        slide.style.cursor = 'pointer';
+        slide.addEventListener('click', ()=>{
+          carIndex = i;
+          renderCarousel();
+        });
+      }
+    }
+
     stage.appendChild(slide);
 
     const dot = document.createElement('div');
-    dot.className = 'car-dot' + (i === carIndex ? ' active' : '');
+    dot.className = 'car-dot' + (diff === 0 ? ' active' : '');
+    dot.addEventListener('click', ()=>{ carIndex = i; renderCarousel(); });
+    dot.style.cursor = 'pointer';
     dotsWrap.appendChild(dot);
   });
 }
+
+let resizeTimer;
+window.addEventListener('resize', ()=>{
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(renderCarousel, 150);
+});
 
 document.getElementById('carPrev').addEventListener('click', ()=>{
   if(PORTFOLIO_IMAGES.length === 0) return;
