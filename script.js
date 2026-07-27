@@ -137,7 +137,13 @@ const translations = {
     login_required: "Please login with Discord to place an order.",
     order_created: "Order submitted — private chat opened.",
     system_order_created: "New design order created",
-    open_chat: "Open chat"
+    open_chat: "Open chat",
+    details_btn: "details",
+    open_chats: "Open chats",
+    closed_chats: "Closed chats",
+    chat_closed: "Chat closed",
+    chat_reopened: "Chat reopened",
+    status_closed: "Closed"
   },
   ar: {
     nav_home: "التعريف",
@@ -193,7 +199,13 @@ const translations = {
     login_required: "سجّل الدخول بديسكورد لإتمام الطلب.",
     order_created: "تم إرسال الطلب — تم فتح الشات الخاص.",
     system_order_created: "تم إنشاء طلب تصميم جديد",
-    open_chat: "فتح الشات"
+    open_chat: "فتح الشات",
+    details_btn: "details",
+    open_chats: "الشاتات المفتوحة",
+    closed_chats: "الشاتات المقفلة",
+    chat_closed: "تم قفل الشات",
+    chat_reopened: "تم إعادة فتح الشات",
+    status_closed: "مقفل"
   }
 };
 
@@ -984,28 +996,76 @@ document.getElementById('orderForm').addEventListener('submit', (e)=>{
 });
 
 /* ---------- Tickets lists ---------- */
-function renderTicketCard(chat){
-  const card = document.createElement('div');
-  card.className = 'ticket-card';
-  card.innerHTML = `
-    <img class="ticket-avatar" src="${chat.clientAvatar || ''}" alt="">
-    <div class="ticket-body">
-      <div class="ticket-title">${escapeHtml(chat.serverName)} · ${escapeHtml(chat.package)}</div>
-      <div class="ticket-meta">
-        <span class="ticket-badge">${escapeHtml(chat.logoLetters || '')}</span>
-        <span>${escapeHtml(chat.clientName || '')}</span>
-        <span class="ticket-time">${formatMsgTime(chat.lastAt || chat.createdAt)}</span>
-      </div>
-    </div>
-  `;
-  card.addEventListener('click', ()=> openChat(chat.id));
-  return card;
-}
-
 function escapeHtml(s){
   return String(s || '').replace(/[&<>"']/g, c => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
+}
+
+function getDesignTypeLabel(designType){
+  const map = {
+    package: translations[currentLang].order_type_package,
+    profile: translations[currentLang].order_type_profile,
+    single: translations[currentLang].order_type_single
+  };
+  return map[designType] || designType || '—';
+}
+
+function renderTicketCard(chat, opts){
+  opts = opts || {};
+  const isAdminView = !!opts.isAdminView;
+  const card = document.createElement('div');
+  card.className = 'ticket-card' + (chat.status === 'closed' ? ' ticket-closed' : '');
+  card.dataset.chatId = chat.id;
+
+  const closedBadge = chat.status === 'closed'
+    ? `<span class="ticket-badge ticket-badge-closed">${translations[currentLang].status_closed}</span>`
+    : '';
+
+  const detailsBtn = isAdminView
+    ? `<button type="button" class="ticket-details-btn" data-chat-id="${escapeHtml(chat.id)}">${translations[currentLang].details_btn}</button>`
+    : '';
+
+  card.innerHTML = `
+    <img class="ticket-avatar" src="${escapeHtml(chat.clientAvatar || '')}" alt="">
+    <div class="ticket-body">
+      <div class="ticket-title">${escapeHtml(chat.serverName)} · ${escapeHtml(chat.package)}</div>
+      <div class="ticket-meta">
+        ${closedBadge}
+        <span>${escapeHtml(chat.clientName || '')}</span>
+        <span class="ticket-time">${formatMsgTime(chat.lastAt || chat.createdAt)}</span>
+        ${detailsBtn}
+      </div>
+      <div class="ticket-details-panel" id="details-${escapeHtml(chat.id)}" style="display:none;">
+        <div class="ticket-details-row"><b>${escapeHtml(translations[currentLang].order_package_label)}:</b> ${escapeHtml(chat.package || '—')}</div>
+        <div class="ticket-details-row"><b>${escapeHtml(translations[currentLang].order_type_label)}:</b> ${escapeHtml(getDesignTypeLabel(chat.designType))}</div>
+        <div class="ticket-details-row"><b>${escapeHtml(translations[currentLang].order_server_label)}:</b> ${escapeHtml(chat.serverName || '—')}</div>
+        <div class="ticket-details-row"><b>${escapeHtml(translations[currentLang].order_logo_label)}:</b> ${escapeHtml(chat.logoLetters || '—')}</div>
+        <div class="ticket-details-row"><b>${escapeHtml(translations[currentLang].order_details_label)}:</b> <span class="ticket-details-text">${escapeHtml(chat.details || '—')}</span></div>
+      </div>
+    </div>
+  `;
+
+  card.addEventListener('click', (e)=>{
+    if(e.target.closest('.ticket-details-btn') || e.target.closest('.ticket-details-panel')) return;
+    openChat(chat.id);
+  });
+
+  if(isAdminView){
+    const btn = card.querySelector('.ticket-details-btn');
+    if(btn){
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const panel = card.querySelector('.ticket-details-panel');
+        if(!panel) return;
+        const isOpen = panel.style.display !== 'none';
+        panel.style.display = isOpen ? 'none' : 'block';
+        btn.classList.toggle('active', !isOpen);
+      });
+    }
+  }
+
+  return card;
 }
 
 function renderUserTickets(){
@@ -1022,7 +1082,7 @@ function renderUserTickets(){
     list.innerHTML = `<div class="tickets-empty">${translations[currentLang].tickets_empty_user}</div>`;
     return;
   }
-  mine.forEach(c => list.appendChild(renderTicketCard(c)));
+  mine.forEach(c => list.appendChild(renderTicketCard(c, { isAdminView: false })));
 }
 
 function renderAdminTickets(){
@@ -1038,7 +1098,29 @@ function renderAdminTickets(){
     list.innerHTML = `<div class="tickets-empty">${translations[currentLang].tickets_empty_admin}</div>`;
     return;
   }
-  store.chats.forEach(c => list.appendChild(renderTicketCard(c)));
+
+  const openChats = store.chats.filter(c => c.status !== 'closed');
+  const closedChats = store.chats.filter(c => c.status === 'closed');
+
+  if(openChats.length > 0){
+    const head = document.createElement('div');
+    head.className = 'tickets-section-title';
+    head.textContent = translations[currentLang].open_chats;
+    list.appendChild(head);
+    openChats.forEach(c => list.appendChild(renderTicketCard(c, { isAdminView: true })));
+  }
+
+  if(closedChats.length > 0){
+    const head = document.createElement('div');
+    head.className = 'tickets-section-title tickets-section-closed';
+    head.textContent = translations[currentLang].closed_chats;
+    list.appendChild(head);
+    closedChats.forEach(c => list.appendChild(renderTicketCard(c, { isAdminView: true })));
+  }
+
+  if(openChats.length === 0 && closedChats.length === 0){
+    list.innerHTML = `<div class="tickets-empty">${translations[currentLang].tickets_empty_admin}</div>`;
+  }
 }
 
 /* ---------- Chat ---------- */
@@ -1056,8 +1138,9 @@ function openChat(chatId){
   activeChatId = chatId;
   document.getElementById('chatTopTitle').textContent =
     `${chat.serverName} · ${chat.package}`;
+  const statusNote = chat.status === 'closed' ? ` · ${translations[currentLang].status_closed}` : '';
   document.getElementById('chatTopSub').textContent =
-    `${chat.clientName} (@${chat.clientUsername || ''}) · ${chat.logoLetters}`;
+    `${chat.clientName} (@${chat.clientUsername || ''})${statusNote}`;
 
   renderChatMessages();
   renderChatPresence();
@@ -1065,6 +1148,62 @@ function openChat(chatId){
   document.body.style.overflow = 'hidden';
   bumpPresence(chatId);
 }
+
+function toggleChatClosedStatus(){
+  if(!currentUser || !currentUser.isAdmin || !activeChatId) return;
+  if(!ADMIN_IDS.includes(String(currentUser.id))) return;
+
+  const store = loadStore();
+  const chat = store.chats.find(c => c.id === activeChatId);
+  if(!chat) return;
+
+  const now = Date.now();
+  const wasClosed = chat.status === 'closed';
+  chat.status = wasClosed ? 'open' : 'closed';
+  chat.lastAt = now;
+
+  const systemMsg = {
+    id: uid(),
+    chatId: activeChatId,
+    type: 'system',
+    text: wasClosed
+      ? translations[currentLang].chat_reopened
+      : translations[currentLang].chat_closed,
+    createdAt: now
+  };
+  store.messages.push(systemMsg);
+  chat.lastMessage = systemMsg.text;
+  saveStore(store);
+
+  renderChatMessages();
+  renderUserTickets();
+  if(currentUser.isAdmin) renderAdminTickets();
+
+  // Update header status text
+  document.getElementById('chatTopSub').textContent =
+    `${chat.clientName} (@${chat.clientUsername || ''})` +
+    (chat.status === 'closed' ? ` · ${translations[currentLang].status_closed}` : '');
+
+  // Close the chat overlay after locking (park it); reopen stays open
+  if(!wasClosed){
+    closeChat();
+  }
+}
+
+/* Tab + Q — admins only: toggle close / reopen the active chat */
+let _tabHeld = false;
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Tab') _tabHeld = true;
+  if(_tabHeld && (e.key === 'q' || e.key === 'Q') && currentUser && currentUser.isAdmin && activeChatId){
+    e.preventDefault();
+    e.stopPropagation();
+    toggleChatClosedStatus();
+  }
+});
+document.addEventListener('keyup', (e)=>{
+  if(e.key === 'Tab') _tabHeld = false;
+});
+document.addEventListener('blur', ()=>{ _tabHeld = false; });
 
 function closeChat(){
   document.getElementById('chatOverlay').classList.remove('open');
