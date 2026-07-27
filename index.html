@@ -757,7 +757,7 @@
     <nav>
       <button class="nav-btn active" data-page="home" data-i18n="nav_home">Overview</button>
       <button class="nav-btn" data-page="pricing" data-i18n="nav_pricing">Pricing</button>
-      <button class="nav-btn" data-page="portfolio" data-i18n="nav_portfolio">Works</button>
+      <button class="nav-btn" data-page="works" data-i18n="nav_portfolio">Works</button>
     </nav>
 
     <button class="settings-btn" id="settingsBtn" data-page="settings" title="Settings" aria-label="Settings">
@@ -866,7 +866,7 @@
     </section>
 
     <!-- ===== WORKS ===== -->
-    <section class="page" id="portfolio">
+    <section class="page" id="works">
       <div class="page-title" data-i18n="portfolio_title">Works</div>
       <div class="page-sub" data-i18n="portfolio_sub">A collection of previous designs</div>
 
@@ -1407,7 +1407,7 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
 document.getElementById('settingsBtn').addEventListener('click', ()=> goToPage('settings'));
 
 /* React to back/forward navigation and direct #hash links */
-const VALID_PAGES = ['home','pricing','portfolio','settings'];
+const VALID_PAGES = ['home','pricing','works','settings'];
 function pageFromHash(){
   const id = location.hash.replace('#','');
   return VALID_PAGES.includes(id) ? id : 'home';
