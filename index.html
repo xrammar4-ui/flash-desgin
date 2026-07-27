@@ -649,6 +649,63 @@
     font-size:12.5px; line-height:1.6; color:rgba(255,255,255,.65); font-weight:600;
     direction:rtl; text-align:right;
   }
+
+  /* ============ DISCORD LOGIN ============ */
+  .discord-login-wrap{
+    position:fixed; top:22px; right:22px; z-index:60;
+  }
+  .discord-login-btn{
+    display:flex; align-items:center; gap:8px;
+    padding:9px 16px;
+    background:linear-gradient(135deg,#5865F2,#4752c4);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:999px;
+    backdrop-filter:blur(14px);
+    box-shadow:0 8px 30px rgba(88,101,242,.35);
+    font-size:13px; font-weight:800;
+    color:#fff;
+    transition:.25s;
+  }
+  .discord-login-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 12px 34px rgba(88,101,242,.55);
+  }
+  .discord-login-btn svg{ width:16px; height:16px; flex-shrink:0; }
+
+  .discord-user-chip{
+    display:none;
+    align-items:center; gap:9px;
+    padding:6px 14px 6px 6px;
+    background:rgba(15,3,3,.55);
+    border:1px solid var(--glass-brd);
+    border-radius:999px;
+    backdrop-filter:blur(14px);
+    box-shadow:0 8px 30px rgba(0,0,0,.4);
+    direction:ltr;
+    transition:.25s;
+  }
+  .discord-user-chip.show{ display:flex; }
+  .discord-user-chip:hover{ border-color:var(--glass-brd-2); }
+  .discord-user-chip img{
+    width:26px; height:26px; border-radius:50%;
+    object-fit:cover;
+    background:#2a0505;
+    border:1px solid rgba(255,255,255,.2);
+  }
+  .discord-user-chip span{
+    font-size:12.5px; font-weight:800; color:#fff;
+    max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .discord-user-logout{
+    display:flex; align-items:center; justify-content:center;
+    width:18px; height:18px; border-radius:50%;
+    background:rgba(255,255,255,.08);
+    color:rgba(255,255,255,.6);
+    font-size:10px; font-weight:800;
+    flex-shrink:0;
+    transition:.2s;
+  }
+  .discord-user-logout:hover{ background:var(--red-700); color:#fff; }
 </style>
 </head>
 <body>
@@ -701,6 +758,19 @@
           </span>
           العربية
         </button>
+      </div>
+    </div>
+
+    <!-- ===== DISCORD LOGIN ===== -->
+    <div class="discord-login-wrap" id="discordLoginWrap">
+      <a class="discord-login-btn" id="discordLoginBtn" href="#">
+        <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.369a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.68 4.369a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.927 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .079.01c.12.099.246.198.373.292a.077.077 0 0 1-.006.127c-.598.35-1.22.645-1.873.892a.076.076 0 0 0-.04.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.001-3.03.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.549-13.66a.06.06 0 0 0-.031-.028ZM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.955 2.418-2.157 2.418Zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.947 2.418-2.157 2.418Z"/></svg>
+        <span data-i18n="discord_login_btn">Login with Discord</span>
+      </a>
+      <div class="discord-user-chip" id="discordUserChip">
+        <img id="discordUserAvatar" src="" alt="">
+        <span id="discordUserName"></span>
+        <button class="discord-user-logout" id="discordLogoutBtn" title="Logout">✕</button>
       </div>
     </div>
 
@@ -893,6 +963,20 @@ const DISCORD_LINK = "https://discord.gg/GQx6kBQws9";
 // لازم تكون عضو بسيرفر Lanyard: https://discord.gg/lanyard حتى تشتغل الخدمة
 const LANYARD_USER_ID = "1350283008896401449";
 
+/* ---------- Discord OAuth2 Login (real login, client-side implicit flow) ----------
+   خطوات التفعيل (لازم تسويها انت مرة وحدة):
+   1) روح https://discord.com/developers/applications وسوي تطبيق جديد.
+   2) من تبويب OAuth2 خذ الـ CLIENT ID وحطه تحت في DISCORD_CLIENT_ID.
+   3) بنفس تبويب OAuth2 -> Redirects: ضيف رابط صفحتك بالضبط (نفس الرابط اللي هيفتح عليه الموقع)
+      مثال: https://yourdomain.com/  أو  https://yourdomain.com/index.html
+      لازم يكون مطابق 100% (بدون سلاش زيادة أو ناقص) لنفس الرابط اللي حاططه تحت بمتغير DISCORD_REDIRECT_URI،
+      أو خليه فاضي "" وهو هياخده تلقائي من رابط الصفحة الحالي.
+*/
+const DISCORD_CLIENT_ID = "1530280446171287775";
+// سيب الاتنين دول زي ما هما، بيتحسبوا لوحدهم من رابط الصفحة نفسها
+const DISCORD_REDIRECT_URI = window.location.origin + window.location.pathname;
+const DISCORD_OAUTH_SCOPE = "identify";
+
 // بيانات المالك — تُستخدم كقيم مبدئية/احتياطية، وبيتم تحديث الاسم/التاق/الصورة/الحالة تلقائياً من Lanyard إذا نجح الاتصال
 const OWNER = {
   name: "ABUALSOOF",
@@ -968,6 +1052,7 @@ const translations = {
     discord_online: "Online",
     discord_offline: "Offline",
     discord_join: "Join Server",
+    discord_login_btn: "Login with Discord",
     profile_brand: "Flash x design"
   },
   ar: {
@@ -997,6 +1082,7 @@ const translations = {
     discord_online: "متصل",
     discord_offline: "غير متصل",
     discord_join: "انضم للسيرفر",
+    discord_login_btn: "سجل دخول بديسكورد",
     profile_brand: "Flash x design"
   }
 };
@@ -1277,7 +1363,7 @@ function pageFromHash(){
 window.addEventListener('popstate', ()=> goToPage(pageFromHash(), false));
 
 /* Open the page matching the URL hash on first load (e.g. site.html#pricing) */
-if(location.hash){
+if(location.hash && VALID_PAGES.includes(location.hash.replace('#',''))){
   goToPage(pageFromHash(), false);
 }
 
@@ -1468,6 +1554,115 @@ document.querySelectorAll('.order-btn, .discord-join').forEach(el=>{
     }
   });
 });
+
+/* =========================================================
+   DISCORD LOGIN (OAuth2 Implicit Flow — client-side, no backend needed)
+   ========================================================= */
+const DISCORD_TOKEN_STORAGE_KEY = 'discord_access_token';
+
+function getDiscordAvatarUrl(user){
+  if(user.avatar){
+    const ext = user.avatar.startsWith('a_') ? 'gif' : 'png';
+    return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${ext}?size=64`;
+  }
+  // Default discord avatar fallback
+  const idx = user.discriminator && user.discriminator !== '0'
+    ? Number(user.discriminator) % 5
+    : Number((BigInt(user.id) >> 22n) % 6n);
+  return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+}
+
+function showLoggedOutUI(){
+  document.getElementById('discordLoginBtn').style.display = 'flex';
+  document.getElementById('discordUserChip').classList.remove('show');
+}
+
+function showLoggedInUI(user){
+  document.getElementById('discordLoginBtn').style.display = 'none';
+  const chip = document.getElementById('discordUserChip');
+  document.getElementById('discordUserAvatar').src = getDiscordAvatarUrl(user);
+  document.getElementById('discordUserName').textContent = user.global_name || user.username;
+  chip.classList.add('show');
+}
+
+function discordLogout(){
+  localStorage.removeItem(DISCORD_TOKEN_STORAGE_KEY);
+  showLoggedOutUI();
+}
+
+async function fetchDiscordMe(token){
+  const res = await fetch('https://discord.com/api/users/@me', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if(!res.ok){
+    throw new Error('token invalid or expired');
+  }
+  return res.json();
+}
+
+async function initDiscordLogin(){
+  const loginBtn = document.getElementById('discordLoginBtn');
+
+  if(!DISCORD_CLIENT_ID || DISCORD_CLIENT_ID === 'YOUR_DISCORD_CLIENT_ID_HERE'){
+    // لسه المطور ما حط الـ Client ID — نعطّل الزر ونطلعله تنبيه بالكونسول بدل ما يكسر الموقع
+    loginBtn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      alert('لازم تحط DISCORD_CLIENT_ID في الكود الأول عشان زر تسجيل الدخول يشتغل.\nYou need to set DISCORD_CLIENT_ID in the code first.');
+    });
+    showLoggedOutUI();
+    return;
+  }
+
+  const authUrl = `https://discord.com/api/oauth2/authorize` +
+    `?client_id=${encodeURIComponent(DISCORD_CLIENT_ID)}` +
+    `&redirect_uri=${encodeURIComponent(DISCORD_REDIRECT_URI)}` +
+    `&response_type=token` +
+    `&scope=${encodeURIComponent(DISCORD_OAUTH_SCOPE)}`;
+
+  loginBtn.href = authUrl;
+  loginBtn.addEventListener('click', (e)=>{
+    e.preventDefault();
+    window.location.href = authUrl;
+  });
+
+  // 1) لو راجعين توّه من ديسكورد، التوكن بيكون بالـ URL hash
+  let token = null;
+  if(location.hash && location.hash.includes('access_token')){
+    const params = new URLSearchParams(location.hash.substring(1));
+    token = params.get('access_token');
+    if(token){
+      localStorage.setItem(DISCORD_TOKEN_STORAGE_KEY, token);
+      // نظّف الرابط من التوكن عشان ما يفضلش ظاهر
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  }
+
+  // 2) أو لو عنده توكن محفوظ من قبل
+  if(!token){
+    token = localStorage.getItem(DISCORD_TOKEN_STORAGE_KEY);
+  }
+
+  if(!token){
+    showLoggedOutUI();
+    return;
+  }
+
+  try{
+    const user = await fetchDiscordMe(token);
+    showLoggedInUI(user);
+  }catch(err){
+    // التوكن انتهت صلاحيته أو غير صحيح
+    localStorage.removeItem(DISCORD_TOKEN_STORAGE_KEY);
+    showLoggedOutUI();
+  }
+}
+
+document.getElementById('discordLogoutBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  discordLogout();
+});
+
+initDiscordLogin();
 
 applyLanguage('en');
 loadDiscordWidget();
