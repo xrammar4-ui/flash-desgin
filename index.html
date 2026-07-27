@@ -146,26 +146,6 @@
   .lang-option:hover{ background:rgba(255,255,255,.08); color:#fff; }
   .lang-option.active{ color:var(--red-glow); }
 
-  /* ============ SETTINGS BUTTON (outside the nav pill) ============ */
-  .settings-btn{
-    position:fixed; top:22px; right:22px; z-index:60;
-    width:42px; height:42px;
-    display:flex; align-items:center; justify-content:center;
-    background:rgba(15,3,3,.55);
-    border:1px solid var(--glass-brd);
-    border-radius:50%;
-    backdrop-filter:blur(14px);
-    box-shadow:0 8px 30px rgba(0,0,0,.4);
-    transition:.3s;
-  }
-  .settings-btn svg{ width:19px; height:19px; transition:transform .5s ease; }
-  .settings-btn:hover{ border-color:var(--glass-brd-2); box-shadow:0 8px 24px rgba(255,30,30,.35); }
-  .settings-btn:hover svg{ transform:rotate(75deg); }
-  .settings-btn.active{
-    background:linear-gradient(135deg,var(--red-700),var(--red-600));
-    border-color:transparent;
-  }
-
   /* ============ NAV ============ */
   nav{
     position:fixed; top:22px; left:50%; transform:translateX(-50%);
@@ -523,42 +503,6 @@
     position:relative; z-index:2;
   }
 
-  /* ============ SETTINGS PAGE (theme picker) ============ */
-  .theme-grid{
-    display:flex; flex-wrap:wrap; justify-content:center; gap:26px;
-    max-width:760px; margin:0 auto;
-  }
-  .theme-circle{
-    position:relative;
-    width:78px; height:78px; border-radius:50%;
-    border:3px solid rgba(255,255,255,.14);
-    box-shadow:0 10px 26px rgba(0,0,0,.4);
-    transition:.3s;
-    display:flex; align-items:flex-end; justify-content:center;
-    flex-shrink:0;
-  }
-  .theme-circle:hover{ transform:translateY(-6px) scale(1.05); border-color:rgba(255,255,255,.35); }
-  .theme-circle.active{
-    border-color:#fff;
-    box-shadow:0 0 0 4px rgba(255,255,255,.12), 0 12px 30px rgba(0,0,0,.5);
-  }
-  .theme-circle.active::after{
-    content:'';
-    position:absolute; inset:0; border-radius:50%;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M5 13l4 4L19 7' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat:no-repeat; background-position:center; background-size:26px;
-    background-color:rgba(0,0,0,.32);
-  }
-  .theme-name{
-    position:absolute; bottom:-26px; left:50%; transform:translateX(-50%);
-    font-size:11.5px; font-weight:700; color:rgba(255,255,255,.55);
-    white-space:nowrap;
-  }
-  .settings-note{
-    text-align:center; margin-top:56px; font-size:12.5px; color:rgba(255,255,255,.35);
-    max-width:420px; margin-left:auto; margin-right:auto;
-  }
-
   /* ============ PROFILE POPOUT (Discord-style card) ============ */
   .profile-modal-overlay{
     position:fixed; inset:0; z-index:300;
@@ -766,13 +710,6 @@
       <button class="nav-btn" data-page="works" data-i18n="nav_portfolio">Works</button>
     </nav>
 
-    <button class="settings-btn" id="settingsBtn" data-page="settings" title="Settings" aria-label="Settings">
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" stroke="#fff" stroke-width="1.6"/>
-        <path d="M19.4 13.5a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19.5a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H4.5a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H10.5a1.65 1.65 0 0 0 1-1.51V4.5a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V10.5a1.65 1.65 0 0 0 1.51 1H19.5a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
-
     <!-- ===== HOME ===== -->
     <section class="page active" id="home">
       <svg class="hero-mark" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
@@ -888,16 +825,6 @@
         </button>
       </div>
       <div class="car-dots" id="carDots"></div>
-    </section>
-
-    <!-- ===== SETTINGS (themes) ===== -->
-    <section class="page" id="settings">
-      <div class="page-title" data-i18n="settings_title">Settings</div>
-      <div class="page-sub" data-i18n="settings_sub">Pick a color theme for the site</div>
-
-      <div class="theme-grid" id="themeGrid"></div>
-
-      <div class="settings-note" data-i18n="settings_note">Your chosen theme is saved on this device and will stay applied next time you visit.</div>
     </section>
 
     <footer>flash desgin &copy; 2026</footer>
@@ -1041,9 +968,6 @@ const translations = {
     discord_online: "Online",
     discord_offline: "Offline",
     discord_join: "Join Server",
-    settings_title: "Settings",
-    settings_sub: "Pick a color theme for the site",
-    settings_note: "Your chosen theme is saved on this device and will stay applied next time you visit.",
     profile_brand: "Flash x design"
   },
   ar: {
@@ -1073,9 +997,6 @@ const translations = {
     discord_online: "متصل",
     discord_offline: "غير متصل",
     discord_join: "انضم للسيرفر",
-    settings_title: "الإعدادات",
-    settings_sub: "اختر ثيم الألوان الذي يناسب الموقع",
-    settings_note: "الثيم اللي تختاره يتحفظ على جهازك وبيضل مفعّل بزيارتك الجايه.",
     profile_brand: "Flash x design"
   }
 };
@@ -1110,69 +1031,8 @@ function applyLanguage(lang){
   }
 
   renderCarousel();
-  renderThemeGrid();
   renderProfileModal();
 }
-
-/* ---------- Theme system ---------- */
-const THEMES = [
-  { id:'red',    label_en:'Crimson', label_ar:'أحمر',    vars:{black:'#050101', bg1:'#170303', bg2:'#3a0202', c900:'#4a0000', c700:'#8a0505', c600:'#b30d0d', c500:'#d81212', glow:'#ff2b2b'} },
-  { id:'blue',   label_en:'Sapphire', label_ar:'أزرق',   vars:{black:'#000308', bg1:'#02091a', bg2:'#02193a', c900:'#001a4a', c700:'#054a8a', c600:'#0d6bb3', c500:'#1290d8', glow:'#2bb0ff'} },
-  { id:'violet', label_en:'Violet',  label_ar:'بنفسجي',  vars:{black:'#060005', bg1:'#130317', bg2:'#2a023a', c900:'#2e004a', c700:'#5c058a', c600:'#7d0db3', c500:'#9a12d8', glow:'#c22bff'} },
-  { id:'green',  label_en:'Emerald', label_ar:'أخضر',    vars:{black:'#000502', bg1:'#031707', bg2:'#023a12', c900:'#004a12', c700:'#058a2e', c600:'#0db34a', c500:'#12d86b', glow:'#2bff8f'} },
-  { id:'gold',   label_en:'Amber',   label_ar:'ذهبي',    vars:{black:'#050300', bg1:'#170e03', bg2:'#3a2402', c900:'#4a2e00', c700:'#8a5c05', c600:'#b3790d', c500:'#d89a12', glow:'#ffce2b'} },
-  { id:'pink',   label_en:'Rose',    label_ar:'وردي',    vars:{black:'#050002', bg1:'#170310', bg2:'#3a0224', c900:'#4a002e', c700:'#8a055c', c600:'#b30d79', c500:'#d8129e', glow:'#ff2bc2'} },
-  { id:'cyan',   label_en:'Aqua',    label_ar:'سماوي',   vars:{black:'#000504', bg1:'#031715', bg2:'#023a35', c900:'#004a44', c700:'#058a7d', c600:'#0db3a3', c500:'#12d8c4', glow:'#2bfff0'} },
-  { id:'orange', label_en:'Sunset',  label_ar:'برتقالي', vars:{black:'#050200', bg1:'#170a03', bg2:'#3a1602', c900:'#4a1e00', c700:'#8a3c05', c600:'#b3510d', c500:'#d86812', glow:'#ff8a2b'} }
-];
-
-const THEME_STORAGE_KEY = 'flashDesginTheme';
-
-function applyTheme(themeId, save){
-  const theme = THEMES.find(t=>t.id === themeId) || THEMES[0];
-  const root = document.documentElement.style;
-  root.setProperty('--black', theme.vars.black);
-  root.setProperty('--bg-1', theme.vars.bg1);
-  root.setProperty('--bg-2', theme.vars.bg2);
-  root.setProperty('--red-900', theme.vars.c900);
-  root.setProperty('--red-700', theme.vars.c700);
-  root.setProperty('--red-600', theme.vars.c600);
-  root.setProperty('--red-500', theme.vars.c500);
-  root.setProperty('--red-glow', theme.vars.glow);
-
-  if(save !== false){
-    try{ localStorage.setItem(THEME_STORAGE_KEY, themeId); }catch(e){}
-  }
-
-  document.querySelectorAll('.theme-circle').forEach(c=>{
-    c.classList.toggle('active', c.dataset.theme === themeId);
-  });
-}
-
-function getSavedTheme(){
-  try{ return localStorage.getItem(THEME_STORAGE_KEY) || 'red'; }catch(e){ return 'red'; }
-}
-
-function renderThemeGrid(){
-  const wrap = document.getElementById('themeGrid');
-  if(!wrap) return;
-  const active = getSavedTheme();
-  wrap.innerHTML = '';
-  THEMES.forEach(t=>{
-    const btn = document.createElement('button');
-    btn.className = 'theme-circle' + (t.id === active ? ' active' : '');
-    btn.dataset.theme = t.id;
-    btn.style.background = `radial-gradient(circle at 35% 30%, ${t.vars.glow}, ${t.vars.c600} 55%, ${t.vars.bg2} 100%)`;
-    const label = currentLang === 'ar' ? t.label_ar : t.label_en;
-    btn.title = label;
-    btn.innerHTML = `<span class="theme-name">${label}</span>`;
-    btn.addEventListener('click', ()=> applyTheme(t.id));
-    wrap.appendChild(btn);
-  });
-}
-
-// Apply the saved theme immediately (before first paint of colors) without re-saving it
-applyTheme(getSavedTheme(), false);
 
 /* Owner setup (initial paint with fallback values, before Lanyard responds) */
 function updateOwnerDisplay(){
@@ -1386,17 +1246,14 @@ const loadInterval = setInterval(()=>{
   bar.style.width = pct + '%';
 }, 150);
 
-/* ---------- Nav + settings page switching ---------- */
+/* ---------- Nav page switching ---------- */
 function goToPage(pageId, updateHash){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('settingsBtn').classList.remove('active');
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
 
   const navBtn = document.querySelector(`.nav-btn[data-page="${pageId}"]`);
   if(navBtn){
     navBtn.classList.add('active');
-  } else if(pageId === 'settings'){
-    document.getElementById('settingsBtn').classList.add('active');
   }
   document.getElementById(pageId).classList.add('active');
 
@@ -1411,10 +1268,8 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
   btn.addEventListener('click', ()=> goToPage(btn.dataset.page));
 });
 
-document.getElementById('settingsBtn').addEventListener('click', ()=> goToPage('settings'));
-
 /* React to back/forward navigation and direct #hash links */
-const VALID_PAGES = ['home','pricing','works','settings'];
+const VALID_PAGES = ['home','pricing','works'];
 function pageFromHash(){
   const id = location.hash.replace('#','');
   return VALID_PAGES.includes(id) ? id : 'home';
