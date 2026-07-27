@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>flash desgin</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 100'%3E%3Crect width='200' height='100' fill='%23170303'/%3E%3Cpath fill='%23ff2b2b' d='M40,50 C25,50 20,35 17,12 C30,32 42,44 58,50 C98,60 152,20 188,4 C150,46 88,56 58,60 C43,63 33,78 28,98 C31,74 34,58 40,50 Z'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Unbounded:wght@500;700;800;900&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ============ LOADER ============ -->
+  <div id="loader">
+    <svg class="loader-mark" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+      <path fill="#ffffff" d="M40,50 C25,50 20,35 17,12 C30,32 42,44 58,50 C98,60 152,20 188,4 C150,46 88,56 58,60 C43,63 33,78 28,98 C31,74 34,58 40,50 Z"/>
+    </svg>
+    <div class="loader-track"><div class="loader-bar" id="loaderBar"></div></div>
+    <div class="loader-txt">Loading</div>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app">
+
+    <div class="bg-sparks" id="bgSparks"></div>
+
+    <div class="lang-switch" id="langSwitch">
+      <button class="lang-current" id="langBtn">
+        <span class="lang-badge" id="langBadgeCurrent"></span>
+        <svg class="lang-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="lang-menu" id="langMenu">
+        <button class="lang-option active" data-lang="en">
+          <span class="lang-badge">
+            <svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg">
+              <rect width="24" height="16" fill="#B22234"/>
+              <g fill="#ffffff">
+                <rect y="1.23" width="24" height="1.23"/>
+                <rect y="3.69" width="24" height="1.23"/>
+                <rect y="6.15" width="24" height="1.23"/>
+                <rect y="8.61" width="24" height="1.23"/>
+                <rect y="11.08" width="24" height="1.23"/>
+                <rect y="13.54" width="24" height="1.23"/>
+              </g>
+              <rect width="10" height="8.6" fill="#3C3B6E"/>
+            </svg>
+          </span>
+          English
+        </button>
+        <button class="lang-option" data-lang="ar">
+          <span class="lang-badge">
+            <svg viewBox="0 0 24 16" xmlns="http://www.w3.org/2000/svg">
+              <rect width="24" height="16" fill="#ffffff"/>
+              <rect width="24" height="5.33" fill="#000000"/>
+              <rect y="10.67" width="24" height="5.33" fill="#149954"/>
+              <polygon points="0,0 0,16 9,8" fill="#E4312b"/>
+            </svg>
+          </span>
+          العربية
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== DISCORD LOGIN ===== -->
+    <div class="discord-login-wrap" id="discordLoginWrap">
+      <a class="discord-login-btn" id="discordLoginBtn" href="#">
+        <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.369a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.68 4.369a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.927 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .079.01c.12.099.246.198.373.292a.077.077 0 0 1-.006.127c-.598.35-1.22.645-1.873.892a.076.076 0 0 0-.04.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.001-3.03.077.077 0 0 0 .031-.055c.5-5.177-.838-9.674-3.549-13.66a.06.06 0 0 0-.031-.028ZM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.955 2.418-2.157 2.418Zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.947 2.418-2.157 2.418Z"/></svg>
+        <span data-i18n="discord_login_btn">Login with Discord</span>
+      </a>
+      <div class="discord-user-chip" id="discordUserChip">
+        <img id="discordUserAvatar" src="" alt="">
+        <span id="discordUserName"></span>
+        <button class="discord-user-logout" id="discordLogoutBtn" title="Logout">✕</button>
+      </div>
+    </div>
+
+    <nav>
+      <button class="nav-btn active" data-page="home" data-i18n="nav_home">Overview</button>
+      <button class="nav-btn" data-page="pricing" data-i18n="nav_pricing">Price,order</button>
+      <button class="nav-btn" data-page="works" data-i18n="nav_portfolio">Works</button>
+      <button class="nav-btn nav-support" id="navSupport" data-page="support" data-i18n="nav_support" style="display:none;">Support</button>
+      <button class="nav-btn nav-admin" id="navAdmin" data-page="admin" data-i18n="nav_admin" style="display:none;">Admin</button>
+    </nav>
+
+    <!-- ===== HOME ===== -->
+    <section class="page active" id="home">
+      <svg class="hero-mark" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#ffffff" d="M40,50 C25,50 20,35 17,12 C30,32 42,44 58,50 C98,60 152,20 188,4 C150,46 88,56 58,60 C43,63 33,78 28,98 C31,74 34,58 40,50 Z"/>
+      </svg>
+      <div class="wordmark">flash desgin</div>
+      <div class="tagline-sub" data-i18n="tagline">Design isn't just an image — it's a meaning only designers understand.</div>
+
+      <div class="owner-card">
+        <div class="owner-avatar-wrap">
+          <img class="owner-avatar" id="ownerAvatar" src="" alt="Owner avatar">
+          <span class="owner-status-dot" id="ownerStatusDot"></span>
+        </div>
+        <div>
+          <div class="owner-name-row">
+            <span class="owner-name" id="ownerName"></span>
+            <span class="crown-wrap" data-tooltip="Server Owner">
+              <svg class="owner-crown" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 8L7 12L12 5L17 12L21 8L19 18H5L3 8Z" fill="#ffd23f" stroke="#b8860b" stroke-width="0.6"/>
+              </svg>
+            </span>
+          </div>
+          <div class="owner-username" id="ownerUsername"></div>
+          <div class="owner-role">Owner Of flash desgin</div>
+        </div>
+      </div>
+
+      <!-- ===== DISCORD LIVE WIDGET ===== -->
+      <div class="discord-widget" id="discordWidget">
+        <div class="discord-banner" id="discordBanner"></div>
+        <div class="discord-body">
+          <img class="discord-icon" id="discordIcon" src="" alt="Server icon">
+          <div class="discord-name" id="discordName">flash desgin</div>
+          <div class="discord-desc" id="discordDesc"></div>
+          <div class="discord-stats">
+            <div class="discord-stat"><span class="dot online"></span><span id="discordOnline">-</span> <span data-i18n="discord_online">Online</span></div>
+            <div class="discord-stat"><span class="dot offline"></span><span id="discordOffline">-</span> <span data-i18n="discord_offline">Offline</span></div>
+          </div>
+          <a class="discord-join" id="discordJoin" href="https://discord.gg/GQx6kBQws9" target="_blank" rel="noopener noreferrer" data-i18n="discord_join">Join Server</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PRICING ===== -->
+    <section class="page" id="pricing">
+      <div class="page-title" data-i18n="pricing_title">Our Pricing</div>
+      <div class="page-sub" data-i18n="pricing_sub">Choose the package that fits your server</div>
+
+      <div class="pricing-grid">
+
+        <div class="price-card">
+          <div class="price-tier">Normal</div>
+          <div class="price-amount">30<span>m</span></div>
+          <ul class="price-list">
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_logo">Server logo</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_banner">Server banner</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_line">Line</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_info_normal">Info × 3</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_bot_normal">Bot × 1</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_welcome">Welcome</span></li>
+          </ul>
+          <button type="button" class="order-btn" data-package="Normal" data-i18n="order_now">Order Now</button>
+        </div>
+
+        <div class="price-card featured">
+          <div class="price-badge" data-i18n="badge_popular">Most Popular</div>
+          <div class="price-tier">Prime</div>
+          <div class="price-amount">80<span>m</span></div>
+          <ul class="price-list">
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_logo">Server logo</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_banner">Server banner</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_line">Line</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_info_prime">Info × 10</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_bot_prime">Bot × 6</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_welcome">Welcome</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_invite">Invite banner</span></li>
+          </ul>
+          <button type="button" class="order-btn" data-package="Prime" data-i18n="order_now">Order Now</button>
+        </div>
+
+        <div class="price-card">
+          <div class="price-tier">Medium</div>
+          <div class="price-amount">40<span>m</span></div>
+          <ul class="price-list">
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_logo">Server logo</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_banner">Server banner</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_line">Line</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_info_medium">Info × 6</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_bot_medium">Bot × 3</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_welcome">Welcome</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="pl_invite">Invite banner</span></li>
+          </ul>
+          <button type="button" class="order-btn" data-package="Medium" data-i18n="order_now">Order Now</button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== SUPPORT (user chats) ===== -->
+    <section class="page" id="support">
+      <div class="page-title" data-i18n="support_title">My Support</div>
+      <div class="page-sub" data-i18n="support_sub">Your private design order chats</div>
+      <div class="tickets-list" id="userTicketsList"></div>
+    </section>
+
+    <!-- ===== ADMIN ===== -->
+    <section class="page" id="admin">
+      <div class="page-title" data-i18n="admin_title">Admin Panel</div>
+      <div class="page-sub" data-i18n="admin_sub">All design order chats</div>
+      <div class="tickets-list" id="adminTicketsList"></div>
+    </section>
+
+    <!-- ===== WORKS ===== -->
+    <section class="page" id="works">
+      <div class="page-title" data-i18n="portfolio_title">Works</div>
+      <div class="page-sub" data-i18n="portfolio_sub">A collection of previous designs</div>
+
+      <div class="carousel-wrap">
+        <button class="car-btn" id="carPrev" aria-label="Previous">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 6l-6 6 6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+
+        <div class="car-stage" id="carStage"></div>
+
+        <button class="car-btn" id="carNext" aria-label="Next">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="car-dots" id="carDots"></div>
+    </section>
+
+    <footer>flash desgin &copy; 2026</footer>
+
+    <!-- ===== FULL PROFILE MODAL ===== -->
+    <div class="profile-modal-overlay" id="profileModal">
+      <div class="profile-card">
+        <div class="profile-scroll">
+          <div class="profile-banner" id="profileBanner">
+            <div class="profile-topbar">
+              <button class="profile-back" id="profileClose" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 5l-7 7 7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <span class="profile-topbar-label" data-i18n="profile_brand">Flash x design</span>
+            </div>
+          </div>
+          <div class="profile-body">
+            <div class="profile-avatar-row">
+              <div class="profile-avatar-wrap">
+                <img class="profile-avatar" id="profileAvatar" src="" alt="">
+                <span class="profile-status-badge">
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 12h12" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>
+                </span>
+              </div>
+              <div class="profile-name-col">
+                <div class="profile-name-row">
+                  <span class="profile-name" id="profileName"></span>
+                </div>
+                <div class="profile-subline">
+                  <span class="tag" id="profileTag"></span>
+                  <span class="sep">•</span>
+                  <span class="status-text" id="profileStatusText"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="profile-badges" id="profileBadges"></div>
+
+            <div class="profile-activity" id="profileActivity" style="display:none;">
+              <span class="activity-dot"></span>
+              <div class="activity-text">
+                <div class="activity-main" id="profileActivityMain"></div>
+                <div class="activity-sub" id="profileActivitySub"></div>
+              </div>
+            </div>
+
+            <div class="profile-note-wrap" id="profileNoteWrap" style="display:none;">
+              <div class="profile-note-title" data-i18n="profile_note_title">Note</div>
+              <div class="profile-note" id="profileNote"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ORDER FORM MODAL ===== -->
+    <div class="overlay-modal" id="orderModal">
+      <div class="overlay-card order-form-card">
+        <div class="overlay-header">
+          <h2 data-i18n="order_form_title">New Design Order</h2>
+          <button type="button" class="overlay-close" id="orderModalClose" aria-label="Close">✕</button>
+        </div>
+        <form id="orderForm" class="order-form" autocomplete="off">
+          <input type="hidden" id="orderPackage" name="package" value="">
+          <div class="form-row">
+            <label data-i18n="order_package_label">Package</label>
+            <div class="form-static" id="orderPackageLabel">—</div>
+          </div>
+          <div class="form-row">
+            <label for="orderDesignType" data-i18n="order_type_label">Design type</label>
+            <select id="orderDesignType" name="designType" required>
+              <option value="" data-i18n="order_type_placeholder">Select type…</option>
+              <option value="package" data-i18n="order_type_package">Package</option>
+              <option value="profile" data-i18n="order_type_profile">Profile</option>
+              <option value="single" data-i18n="order_type_single">Individual design</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="orderServerName" data-i18n="order_server_label">Server name</label>
+            <input type="text" id="orderServerName" name="serverName" maxlength="64" required>
+          </div>
+          <div class="form-row">
+            <label for="orderLogoLetters" data-i18n="order_logo_label">Server logo (2 letters)</label>
+            <input type="text" id="orderLogoLetters" name="logoLetters" maxlength="2" minlength="1" required class="logo-letters-input" dir="ltr">
+          </div>
+          <div class="form-row">
+            <label for="orderDetails" data-i18n="order_details_label">Design details</label>
+            <textarea id="orderDetails" name="details" rows="5" maxlength="2000" required></textarea>
+          </div>
+          <button type="submit" class="form-submit" data-i18n="order_submit">Submit Order</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== CHAT OVERLAY ===== -->
+    <div class="chat-overlay" id="chatOverlay">
+      <div class="chat-shell">
+        <div class="chat-sidebar">
+          <div class="chat-sidebar-head">
+            <button type="button" class="chat-back-btn" id="chatBackBtn" aria-label="Back">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <span data-i18n="chat_members">Members</span>
+          </div>
+          <div class="chat-presence-block">
+            <div class="chat-presence-title"><span class="dot online"></span> <span data-i18n="discord_online">Online</span></div>
+            <div class="chat-presence-list" id="chatOnlineList"></div>
+          </div>
+          <div class="chat-presence-block">
+            <div class="chat-presence-title"><span class="dot offline"></span> <span data-i18n="discord_offline">Offline</span></div>
+            <div class="chat-presence-list" id="chatOfflineList"></div>
+          </div>
+        </div>
+        <div class="chat-main">
+          <div class="chat-topbar">
+            <div class="chat-top-info">
+              <div class="chat-top-title" id="chatTopTitle">—</div>
+              <div class="chat-top-sub" id="chatTopSub"></div>
+            </div>
+            <button type="button" class="overlay-close" id="chatCloseBtn" aria-label="Close">✕</button>
+          </div>
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-composer">
+            <label class="chat-attach" title="Upload image">
+              <input type="file" id="chatImageInput" accept="image/*" hidden>
+              <svg viewBox="0 0 24 24" fill="none"><path d="M4 16l4.5-4.5 3 3L16 10l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="4" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="9" r="1.4" fill="currentColor"/></svg>
+            </label>
+            <div class="chat-preview" id="chatImagePreview" style="display:none;">
+              <img id="chatPreviewImg" src="" alt="">
+              <button type="button" id="chatPreviewClear">✕</button>
+            </div>
+            <input type="text" id="chatInput" data-i18n-placeholder="chat_placeholder" placeholder="Type a message…" maxlength="2000" autocomplete="off">
+            <button type="button" class="chat-send" id="chatSendBtn" data-i18n="chat_send">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
