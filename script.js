@@ -82,8 +82,8 @@ const PORTFOLIO_IMAGES = [
       CREATE POLICY "Allow public access" ON store FOR ALL USING (true) WITH CHECK (true);
    (ده مؤقت عشان يشتغل بسهولة، تقدر تقفل بعدين)
 */
-const SUPABASE_URL = "https://rwrhzkpdlgfhxnnxlmj.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3dnJoemtwZGxnaGZ4bm54bG1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNzgzMzgsImV4cCI6MjEwMDc1NDMzOH0.BFxtLNsT7kYDHvEqlTUS2tPiP65wZOlDntNYAP5HUa8";
+const SUPABASE_URL = "https://rwvrhzkpdlghfxnnxlmj.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_0UznKlUIBleaYElHnNoTQA_Ky5c39MB";
 
 /* ========================================================= */
 
