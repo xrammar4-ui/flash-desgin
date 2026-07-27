@@ -494,6 +494,12 @@
     border-color:rgba(255,60,60,.55);
     box-shadow:0 0 0 1px rgba(255,60,60,.3), 0 25px 70px rgba(216,18,18,.35);
   }
+  .car-slide img{
+    width:100%; height:100%;
+    object-fit:cover;
+    display:block;
+    pointer-events:none;
+  }
   .car-placeholder{
     display:flex; flex-direction:column; align-items:center; gap:10px;
     color:rgba(255,255,255,.35); font-size:13px; font-weight:700;
@@ -1482,7 +1488,19 @@ function renderCarousel(){
     const absDiff = Math.abs(diff);
     const slide = document.createElement('div');
     slide.className = 'car-slide' + (diff === 0 ? ' is-center' : '');
-    slide.style.backgroundImage = `url(${src})`;
+
+    const img = document.createElement('img');
+    img.src = src;
+    img.loading = 'lazy';
+    img.alt = 'Portfolio work';
+    img.referrerPolicy = 'no-referrer';
+    img.onerror = function(){
+      // Broken/unreachable link — show a clear placeholder instead of a blank tile
+      this.onerror = null;
+      this.replaceWith(placeholderSlide().firstChild);
+      console.warn('Failed to load portfolio image:', src);
+    };
+    slide.appendChild(img);
 
     if(absDiff > 2){
       slide.style.display = 'none';
