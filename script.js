@@ -1011,6 +1011,32 @@ function getDesignTypeLabel(designType){
   return map[designType] || designType || '—';
 }
 
+function canDeleteChat(chat){
+  if(!currentUser || !chat) return false;
+  if(currentUser.isAdmin) return true;
+  return chat.clientId === currentUser.id;
+}
+
+function deleteChat(chatId){
+  if(!currentUser) return;
+  const store = loadStore();
+  const chat = store.chats.find(c => c.id === chatId);
+  if(!chat || !canDeleteChat(chat)) return;
+
+  const confirmMsg = currentLang === 'ar'
+    ? 'هل أنت متأكد من حذف هذا الشات نهائياً؟'
+    : 'Are you sure you want to permanently delete this chat?';
+  if(!confirm(confirmMsg)) return;
+
+  store.chats = store.chats.filter(c => c.id !== chatId);
+  store.messages = store.messages.filter(m => m.chatId !== chatId);
+  saveStore(store);
+
+  if(activeChatId === chatId) closeChat();
+  renderUserTickets();
+  if(currentUser.isAdmin) renderAdminTickets();
+}
+
 function renderTicketCard(chat, opts){
   opts = opts || {};
   const isAdminView = !!opts.isAdminView;
@@ -1026,7 +1052,17 @@ function renderTicketCard(chat, opts){
     ? `<button type="button" class="ticket-details-btn" data-chat-id="${escapeHtml(chat.id)}">${translations[currentLang].details_btn}</button>`
     : '';
 
+  const showDelete = canDeleteChat(chat);
+  const deleteBtn = showDelete
+    ? `<button type="button" class="ticket-delete-btn" title="${currentLang === 'ar' ? 'حذف' : 'Delete'}" aria-label="Delete">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>`
+    : '';
+
   card.innerHTML = `
+    ${deleteBtn}
     <img class="ticket-avatar" src="${escapeHtml(chat.clientAvatar || '')}" alt="">
     <div class="ticket-body">
       <div class="ticket-title">${escapeHtml(chat.serverName)} · ${escapeHtml(chat.package)}</div>
@@ -1047,7 +1083,7 @@ function renderTicketCard(chat, opts){
   `;
 
   card.addEventListener('click', (e)=>{
-    if(e.target.closest('.ticket-details-btn') || e.target.closest('.ticket-details-panel')) return;
+    if(e.target.closest('.ticket-details-btn') || e.target.closest('.ticket-details-panel') || e.target.closest('.ticket-delete-btn')) return;
     openChat(chat.id);
   });
 
@@ -1063,6 +1099,14 @@ function renderTicketCard(chat, opts){
         btn.classList.toggle('active', !isOpen);
       });
     }
+  }
+
+  const delBtn = card.querySelector('.ticket-delete-btn');
+  if(delBtn){
+    delBtn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      deleteChat(chat.id);
+    });
   }
 
   return card;
