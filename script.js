@@ -70,11 +70,25 @@ const PORTFOLIO_IMAGES = [
 /* ========================================================= */
 
 /* ---------- Translations ---------- */
+const ADMIN_IDS = [
+  "1350283008896401449",
+  "1282471121043718236"
+];
+
+// Current Discord user (set after OAuth) — declared early for nav guards
+let currentUser = null;
+let activeChatId = null;
+let pendingImageData = null;
+let presenceTimer = null;
+let storePollTimer = null;
+
 const translations = {
   en: {
     nav_home: "Overview",
     nav_pricing: "Pricing",
     nav_portfolio: "Works",
+    nav_support: "Support",
+    nav_admin: "Admin",
     tagline: "Design isn't just an image — it's a meaning only designers understand.",
     owner_placeholder: "Owner Name",
     pricing_title: "Our Pricing",
@@ -99,12 +113,38 @@ const translations = {
     discord_offline: "Offline",
     discord_join: "Join Server",
     discord_login_btn: "Login with Discord",
-    profile_brand: "Flash x design"
+    profile_brand: "Flash x design",
+    support_title: "My Support",
+    support_sub: "Your private design order chats",
+    admin_title: "Admin Panel",
+    admin_sub: "All design order chats",
+    order_form_title: "New Design Order",
+    order_package_label: "Package",
+    order_type_label: "Design type",
+    order_type_placeholder: "Select type…",
+    order_type_package: "Package",
+    order_type_profile: "Profile",
+    order_type_single: "Individual design",
+    order_server_label: "Server name",
+    order_logo_label: "Server logo (2 letters)",
+    order_details_label: "Design details",
+    order_submit: "Submit Order",
+    chat_members: "Members",
+    chat_placeholder: "Type a message…",
+    chat_send: "Send",
+    tickets_empty_user: "No orders yet. Order a package to start a private chat.",
+    tickets_empty_admin: "No orders yet.",
+    login_required: "Please login with Discord to place an order.",
+    order_created: "Order submitted — private chat opened.",
+    system_order_created: "New design order created",
+    open_chat: "Open chat"
   },
   ar: {
     nav_home: "التعريف",
     nav_pricing: "اسعار الاعمال",
     nav_portfolio: "Works",
+    nav_support: "الدعم",
+    nav_admin: "الإدارة",
     tagline: "التصميم هو ليس صورة و بس، هو معنى لا يعرفه الا مصممين",
     owner_placeholder: "اسم المالك",
     pricing_title: "اسعار الاعمال",
@@ -129,7 +169,31 @@ const translations = {
     discord_offline: "غير متصل",
     discord_join: "انضم للسيرفر",
     discord_login_btn: "سجل دخول بديسكورد",
-    profile_brand: "Flash x design"
+    profile_brand: "Flash x design",
+    support_title: "دعم الطلبات",
+    support_sub: "محادثاتك الخاصة لطلبات التصميم",
+    admin_title: "لوحة الإدارة",
+    admin_sub: "جميع محادثات الطلبات",
+    order_form_title: "طلب تصميم جديد",
+    order_package_label: "الباقة",
+    order_type_label: "نوع التصميم",
+    order_type_placeholder: "اختر النوع…",
+    order_type_package: "بكج",
+    order_type_profile: "بروفايل",
+    order_type_single: "تصميم فردي",
+    order_server_label: "اسم السيرفر",
+    order_logo_label: "شعار السيرفر (حرفين)",
+    order_details_label: "تفاصيل التصميم",
+    order_submit: "إرسال الطلب",
+    chat_members: "الأعضاء",
+    chat_placeholder: "اكتب رسالة…",
+    chat_send: "إرسال",
+    tickets_empty_user: "لا توجد طلبات بعد. اطلب باقة لفتح شات خاص.",
+    tickets_empty_admin: "لا توجد طلبات بعد.",
+    login_required: "سجّل الدخول بديسكورد لإتمام الطلب.",
+    order_created: "تم إرسال الطلب — تم فتح الشات الخاص.",
+    system_order_created: "تم إنشاء طلب تصميم جديد",
+    open_chat: "فتح الشات"
   }
 };
 
@@ -152,18 +216,41 @@ function applyLanguage(lang){
     }
   });
 
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    const key = el.dataset.i18nPlaceholder;
+    if(translations[lang][key] !== undefined){
+      el.placeholder = translations[lang][key];
+    }
+  });
+
+  // Refresh select option labels
+  const typeSelect = document.getElementById('orderDesignType');
+  if(typeSelect){
+    const map = {
+      '': 'order_type_placeholder',
+      package: 'order_type_package',
+      profile: 'order_type_profile',
+      single: 'order_type_single'
+    };
+    Array.from(typeSelect.options).forEach(opt=>{
+      const k = map[opt.value];
+      if(k && translations[lang][k]) opt.textContent = translations[lang][k];
+    });
+  }
+
   document.getElementById('langBadgeCurrent').innerHTML = flagSVG[lang];
   document.querySelectorAll('.lang-option').forEach(opt=>{
     opt.classList.toggle('active', opt.dataset.lang === lang);
   });
 
-  // Owner name placeholder follows language only if no custom name was set
   if(!OWNER.name){
     document.getElementById('ownerName').textContent = translations[lang].owner_placeholder;
   }
 
   renderCarousel();
   renderProfileModal();
+  if(typeof renderUserTickets === 'function') renderUserTickets();
+  if(typeof renderAdminTickets === 'function') renderAdminTickets();
 }
 
 /* Owner setup (initial paint with fallback values, before Lanyard responds) */
@@ -380,6 +467,14 @@ const loadInterval = setInterval(()=>{
 
 /* ---------- Nav page switching ---------- */
 function goToPage(pageId, updateHash){
+  if(pageId === 'support' && typeof currentUser !== 'undefined' && !currentUser){
+    if(typeof requireLogin === 'function') requireLogin();
+    return;
+  }
+  if(pageId === 'admin' && (typeof currentUser === 'undefined' || !currentUser || !currentUser.isAdmin)){
+    return;
+  }
+
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
 
@@ -387,13 +482,17 @@ function goToPage(pageId, updateHash){
   if(navBtn){
     navBtn.classList.add('active');
   }
-  document.getElementById(pageId).classList.add('active');
+  const pageEl = document.getElementById(pageId);
+  if(pageEl) pageEl.classList.add('active');
 
   if(updateHash !== false){
     if(location.hash !== '#' + pageId){
       history.pushState(null, '', '#' + pageId);
     }
   }
+
+  if(pageId === 'support' && typeof renderUserTickets === 'function') renderUserTickets();
+  if(pageId === 'admin' && typeof renderAdminTickets === 'function') renderAdminTickets();
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn=>{
@@ -401,7 +500,7 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
 });
 
 /* React to back/forward navigation and direct #hash links */
-const VALID_PAGES = ['home','pricing','works'];
+const VALID_PAGES = ['home','pricing','works','support','admin'];
 function pageFromHash(){
   const id = location.hash.replace('#','');
   return VALID_PAGES.includes(id) ? id : 'home';
@@ -585,72 +684,162 @@ async function loadDiscordWidget(){
   }
 }
 
-/* Ensure order/join buttons always point to the server invite,
-   and force it open even in restrictive preview/sandboxed environments */
-document.querySelectorAll('.order-btn, .discord-join').forEach(el=>{
+/* Join server still opens Discord invite */
+document.querySelectorAll('.discord-join').forEach(el=>{
   el.href = DISCORD_LINK;
   el.target = '_blank';
   el.rel = 'noopener noreferrer';
   el.addEventListener('click', (e)=>{
     e.preventDefault();
     const win = window.open(DISCORD_LINK, '_blank', 'noopener,noreferrer');
-    if(!win){
-      // popup was blocked — fall back to same-tab navigation
-      window.location.href = DISCORD_LINK;
-    }
+    if(!win) window.location.href = DISCORD_LINK;
   });
 });
 
 /* =========================================================
-   DISCORD LOGIN (OAuth2 Implicit Flow — client-side, no backend needed)
+   DISCORD LOGIN + ORDER / CHAT SYSTEM
    ========================================================= */
 const DISCORD_TOKEN_STORAGE_KEY = 'discord_access_token';
+const STORE_KEY = 'flash_desgin_store_v1';
+const PENDING_ORDER_KEY = 'flash_pending_order_package';
+const PRESENCE_TTL_MS = 45000;
 
 function getDiscordAvatarUrl(user){
   if(user.avatar){
     const ext = user.avatar.startsWith('a_') ? 'gif' : 'png';
-    return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${ext}?size=64`;
+    return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${ext}?size=128`;
   }
-  // Default discord avatar fallback
   const idx = user.discriminator && user.discriminator !== '0'
     ? Number(user.discriminator) % 5
     : Number((BigInt(user.id) >> 22n) % 6n);
   return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
 }
 
+function isAdminId(id){
+  return ADMIN_IDS.includes(String(id));
+}
+
+function loadStore(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return { chats: [], messages: [], presence: {} };
+    const data = JSON.parse(raw);
+    return {
+      chats: Array.isArray(data.chats) ? data.chats : [],
+      messages: Array.isArray(data.messages) ? data.messages : [],
+      presence: data.presence && typeof data.presence === 'object' ? data.presence : {}
+    };
+  }catch(e){
+    return { chats: [], messages: [], presence: {} };
+  }
+}
+
+function saveStore(store){
+  localStorage.setItem(STORE_KEY, JSON.stringify(store));
+  // Notify other tabs
+  try{ localStorage.setItem(STORE_KEY + '_ping', String(Date.now())); }catch(e){}
+}
+
+function uid(){
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
+
+function formatMsgTime(ts){
+  try{
+    const d = new Date(ts);
+    return d.toLocaleString(currentLang === 'ar' ? 'ar' : 'en', {
+      month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
+    });
+  }catch(e){ return ''; }
+}
+
 function showLoggedOutUI(){
+  currentUser = null;
   document.getElementById('discordLoginBtn').style.display = 'flex';
   document.getElementById('discordUserChip').classList.remove('show');
+  document.getElementById('navSupport').style.display = 'none';
+  document.getElementById('navAdmin').style.display = 'none';
+  stopPresence();
 }
 
 function showLoggedInUI(user){
+  const avatarUrl = getDiscordAvatarUrl(user);
+  currentUser = {
+    id: String(user.id),
+    username: user.username,
+    global_name: user.global_name || user.username,
+    avatar: user.avatar,
+    avatarUrl,
+    isAdmin: isAdminId(user.id)
+  };
   document.getElementById('discordLoginBtn').style.display = 'none';
   const chip = document.getElementById('discordUserChip');
-  document.getElementById('discordUserAvatar').src = getDiscordAvatarUrl(user);
-  document.getElementById('discordUserName').textContent = user.global_name || user.username;
+  document.getElementById('discordUserAvatar').src = avatarUrl;
+  document.getElementById('discordUserName').textContent = currentUser.global_name;
   chip.classList.add('show');
+  document.getElementById('navSupport').style.display = '';
+  document.getElementById('navAdmin').style.display = currentUser.isAdmin ? '' : 'none';
+  startPresence();
+  renderUserTickets();
+  if(currentUser.isAdmin) renderAdminTickets();
+
+  // Resume pending order after OAuth redirect
+  const pendingPkg = localStorage.getItem(PENDING_ORDER_KEY);
+  if(pendingPkg){
+    localStorage.removeItem(PENDING_ORDER_KEY);
+    setTimeout(()=> openOrderModal(pendingPkg), 400);
+  }
 }
 
 function discordLogout(){
+  if(currentUser) setPresenceOffline(currentUser.id);
   localStorage.removeItem(DISCORD_TOKEN_STORAGE_KEY);
   showLoggedOutUI();
+  closeChat();
+  if(document.getElementById('support').classList.contains('active') ||
+     document.getElementById('admin').classList.contains('active')){
+    goToPage('home');
+  }
 }
 
 async function fetchDiscordMe(token){
   const res = await fetch('https://discord.com/api/users/@me', {
     headers: { Authorization: `Bearer ${token}` }
   });
-  if(!res.ok){
-    throw new Error('token invalid or expired');
-  }
+  if(!res.ok) throw new Error('token invalid or expired');
   return res.json();
+}
+
+function getAuthUrl(){
+  return `https://discord.com/api/oauth2/authorize` +
+    `?client_id=${encodeURIComponent(DISCORD_CLIENT_ID)}` +
+    `&redirect_uri=${encodeURIComponent(DISCORD_REDIRECT_URI)}` +
+    `&response_type=token` +
+    `&scope=${encodeURIComponent(DISCORD_OAUTH_SCOPE)}`;
+}
+
+function requireLogin(thenAction){
+  if(currentUser){
+    if(typeof thenAction === 'function') thenAction();
+    return true;
+  }
+  alert(translations[currentLang].login_required);
+  // Save intent and redirect to Discord login
+  if(typeof thenAction === 'string'){
+    localStorage.setItem(PENDING_ORDER_KEY, thenAction);
+  }
+  if(!DISCORD_CLIENT_ID || DISCORD_CLIENT_ID === 'YOUR_DISCORD_CLIENT_ID_HERE'){
+    alert('DISCORD_CLIENT_ID is not set in script.js');
+    return false;
+  }
+  window.location.href = getAuthUrl();
+  return false;
 }
 
 async function initDiscordLogin(){
   const loginBtn = document.getElementById('discordLoginBtn');
 
   if(!DISCORD_CLIENT_ID || DISCORD_CLIENT_ID === 'YOUR_DISCORD_CLIENT_ID_HERE'){
-    // لسه المطور ما حط الـ Client ID — نعطّل الزر ونطلعله تنبيه بالكونسول بدل ما يكسر الموقع
     loginBtn.addEventListener('click', (e)=>{
       e.preventDefault();
       alert('لازم تحط DISCORD_CLIENT_ID في الكود الأول عشان زر تسجيل الدخول يشتغل.\nYou need to set DISCORD_CLIENT_ID in the code first.');
@@ -659,34 +848,23 @@ async function initDiscordLogin(){
     return;
   }
 
-  const authUrl = `https://discord.com/api/oauth2/authorize` +
-    `?client_id=${encodeURIComponent(DISCORD_CLIENT_ID)}` +
-    `&redirect_uri=${encodeURIComponent(DISCORD_REDIRECT_URI)}` +
-    `&response_type=token` +
-    `&scope=${encodeURIComponent(DISCORD_OAUTH_SCOPE)}`;
-
+  const authUrl = getAuthUrl();
   loginBtn.href = authUrl;
   loginBtn.addEventListener('click', (e)=>{
     e.preventDefault();
     window.location.href = authUrl;
   });
 
-  // 1) لو راجعين توّه من ديسكورد، التوكن بيكون بالـ URL hash
   let token = null;
   if(location.hash && location.hash.includes('access_token')){
     const params = new URLSearchParams(location.hash.substring(1));
     token = params.get('access_token');
     if(token){
       localStorage.setItem(DISCORD_TOKEN_STORAGE_KEY, token);
-      // نظّف الرابط من التوكن عشان ما يفضلش ظاهر
       history.replaceState(null, '', location.pathname + location.search);
     }
   }
-
-  // 2) أو لو عنده توكن محفوظ من قبل
-  if(!token){
-    token = localStorage.getItem(DISCORD_TOKEN_STORAGE_KEY);
-  }
+  if(!token) token = localStorage.getItem(DISCORD_TOKEN_STORAGE_KEY);
 
   if(!token){
     showLoggedOutUI();
@@ -697,7 +875,6 @@ async function initDiscordLogin(){
     const user = await fetchDiscordMe(token);
     showLoggedInUI(user);
   }catch(err){
-    // التوكن انتهت صلاحيته أو غير صحيح
     localStorage.removeItem(DISCORD_TOKEN_STORAGE_KEY);
     showLoggedOutUI();
   }
@@ -708,7 +885,418 @@ document.getElementById('discordLogoutBtn').addEventListener('click', (e)=>{
   discordLogout();
 });
 
-initDiscordLogin();
+/* ---------- Order form ---------- */
+function openOrderModal(packageName){
+  document.getElementById('orderPackage').value = packageName || '';
+  document.getElementById('orderPackageLabel').textContent = packageName || '—';
+  document.getElementById('orderForm').reset();
+  document.getElementById('orderPackage').value = packageName || '';
+  document.getElementById('orderModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeOrderModal(){
+  document.getElementById('orderModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
 
+document.getElementById('orderModalClose').addEventListener('click', closeOrderModal);
+document.getElementById('orderModal').addEventListener('click', (e)=>{
+  if(e.target.id === 'orderModal') closeOrderModal();
+});
+
+document.querySelectorAll('.order-btn').forEach(btn=>{
+  btn.addEventListener('click', (e)=>{
+    e.preventDefault();
+    const pkg = btn.dataset.package || 'Custom';
+    requireLogin(pkg);
+    if(currentUser) openOrderModal(pkg);
+  });
+});
+
+// Logo letters: force max 2 letters, uppercase
+document.getElementById('orderLogoLetters').addEventListener('input', (e)=>{
+  let v = e.target.value.replace(/[^a-zA-Z\u0600-\u06FF]/g, '').slice(0, 2);
+  e.target.value = v.toUpperCase();
+});
+
+document.getElementById('orderForm').addEventListener('submit', (e)=>{
+  e.preventDefault();
+  if(!currentUser){
+    requireLogin();
+    return;
+  }
+  const packageName = document.getElementById('orderPackage').value || 'Custom';
+  const designType = document.getElementById('orderDesignType').value;
+  const serverName = document.getElementById('orderServerName').value.trim();
+  const logoLetters = document.getElementById('orderLogoLetters').value.trim().toUpperCase();
+  const details = document.getElementById('orderDetails').value.trim();
+
+  if(!designType || !serverName || !logoLetters || !details) return;
+  if(logoLetters.length > 2) return;
+
+  const chatId = uid();
+  const now = Date.now();
+  const typeLabel = {
+    package: translations[currentLang].order_type_package,
+    profile: translations[currentLang].order_type_profile,
+    single: translations[currentLang].order_type_single
+  }[designType] || designType;
+
+  const chat = {
+    id: chatId,
+    package: packageName,
+    designType,
+    serverName,
+    logoLetters,
+    details,
+    clientId: currentUser.id,
+    clientName: currentUser.global_name,
+    clientUsername: currentUser.username,
+    clientAvatar: currentUser.avatarUrl,
+    status: 'open',
+    createdAt: now,
+    lastAt: now,
+    lastMessage: translations[currentLang].system_order_created
+  };
+
+  const systemMsg = {
+    id: uid(),
+    chatId,
+    type: 'system',
+    text: `${translations[currentLang].system_order_created}\n` +
+      `• ${translations[currentLang].order_package_label}: ${packageName}\n` +
+      `• ${translations[currentLang].order_type_label}: ${typeLabel}\n` +
+      `• ${translations[currentLang].order_server_label}: ${serverName}\n` +
+      `• ${translations[currentLang].order_logo_label}: ${logoLetters}\n` +
+      `• ${translations[currentLang].order_details_label}: ${details}`,
+    createdAt: now
+  };
+
+  const store = loadStore();
+  store.chats.unshift(chat);
+  store.messages.push(systemMsg);
+  saveStore(store);
+
+  closeOrderModal();
+  renderUserTickets();
+  if(currentUser.isAdmin) renderAdminTickets();
+  openChat(chatId);
+});
+
+/* ---------- Tickets lists ---------- */
+function renderTicketCard(chat){
+  const card = document.createElement('div');
+  card.className = 'ticket-card';
+  card.innerHTML = `
+    <img class="ticket-avatar" src="${chat.clientAvatar || ''}" alt="">
+    <div class="ticket-body">
+      <div class="ticket-title">${escapeHtml(chat.serverName)} · ${escapeHtml(chat.package)}</div>
+      <div class="ticket-meta">
+        <span class="ticket-badge">${escapeHtml(chat.logoLetters || '')}</span>
+        <span>${escapeHtml(chat.clientName || '')}</span>
+        <span class="ticket-time">${formatMsgTime(chat.lastAt || chat.createdAt)}</span>
+      </div>
+    </div>
+  `;
+  card.addEventListener('click', ()=> openChat(chat.id));
+  return card;
+}
+
+function escapeHtml(s){
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function renderUserTickets(){
+  const list = document.getElementById('userTicketsList');
+  if(!list) return;
+  list.innerHTML = '';
+  if(!currentUser){
+    list.innerHTML = `<div class="tickets-empty">${translations[currentLang].tickets_empty_user}</div>`;
+    return;
+  }
+  const store = loadStore();
+  const mine = store.chats.filter(c => c.clientId === currentUser.id);
+  if(mine.length === 0){
+    list.innerHTML = `<div class="tickets-empty">${translations[currentLang].tickets_empty_user}</div>`;
+    return;
+  }
+  mine.forEach(c => list.appendChild(renderTicketCard(c)));
+}
+
+function renderAdminTickets(){
+  const list = document.getElementById('adminTicketsList');
+  if(!list) return;
+  list.innerHTML = '';
+  if(!currentUser || !currentUser.isAdmin){
+    list.innerHTML = `<div class="tickets-empty">${translations[currentLang].tickets_empty_admin}</div>`;
+    return;
+  }
+  const store = loadStore();
+  if(store.chats.length === 0){
+    list.innerHTML = `<div class="tickets-empty">${translations[currentLang].tickets_empty_admin}</div>`;
+    return;
+  }
+  store.chats.forEach(c => list.appendChild(renderTicketCard(c)));
+}
+
+/* ---------- Chat ---------- */
+function canAccessChat(chat){
+  if(!currentUser || !chat) return false;
+  if(currentUser.isAdmin) return true;
+  return chat.clientId === currentUser.id;
+}
+
+function openChat(chatId){
+  const store = loadStore();
+  const chat = store.chats.find(c => c.id === chatId);
+  if(!chat || !canAccessChat(chat)) return;
+
+  activeChatId = chatId;
+  document.getElementById('chatTopTitle').textContent =
+    `${chat.serverName} · ${chat.package}`;
+  document.getElementById('chatTopSub').textContent =
+    `${chat.clientName} (@${chat.clientUsername || ''}) · ${chat.logoLetters}`;
+
+  renderChatMessages();
+  renderChatPresence();
+  document.getElementById('chatOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  bumpPresence(chatId);
+}
+
+function closeChat(){
+  document.getElementById('chatOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  activeChatId = null;
+  pendingImageData = null;
+  document.getElementById('chatImagePreview').style.display = 'none';
+  document.getElementById('chatInput').value = '';
+}
+
+document.getElementById('chatCloseBtn').addEventListener('click', closeChat);
+document.getElementById('chatBackBtn').addEventListener('click', closeChat);
+
+function renderChatMessages(){
+  const box = document.getElementById('chatMessages');
+  box.innerHTML = '';
+  if(!activeChatId) return;
+  const store = loadStore();
+  const msgs = store.messages
+    .filter(m => m.chatId === activeChatId)
+    .sort((a,b) => a.createdAt - b.createdAt);
+
+  msgs.forEach(m => {
+    if(m.type === 'system'){
+      const el = document.createElement('div');
+      el.className = 'msg-system';
+      el.textContent = m.text;
+      box.appendChild(el);
+      return;
+    }
+    const mine = currentUser && m.senderId === currentUser.id;
+    const el = document.createElement('div');
+    el.className = 'msg' + (mine ? ' mine' : '');
+    el.innerHTML = `
+      <img class="msg-avatar" src="${escapeHtml(m.senderAvatar || '')}" alt="">
+      <div class="msg-bubble">
+        <div class="msg-author">${escapeHtml(m.senderName || '')}</div>
+        ${m.text ? `<div class="msg-text">${escapeHtml(m.text)}</div>` : ''}
+        ${m.image ? `<img class="msg-img" src="${m.image}" alt="attachment">` : ''}
+        <div class="msg-time">${formatMsgTime(m.createdAt)}</div>
+      </div>
+    `;
+    box.appendChild(el);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function sendChatMessage(){
+  if(!currentUser || !activeChatId) return;
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if(!text && !pendingImageData) return;
+
+  const store = loadStore();
+  const chat = store.chats.find(c => c.id === activeChatId);
+  if(!chat || !canAccessChat(chat)) return;
+
+  const msg = {
+    id: uid(),
+    chatId: activeChatId,
+    type: 'user',
+    senderId: currentUser.id,
+    senderName: currentUser.global_name,
+    senderAvatar: currentUser.avatarUrl,
+    text: text || '',
+    image: pendingImageData || null,
+    createdAt: Date.now()
+  };
+  store.messages.push(msg);
+  chat.lastAt = msg.createdAt;
+  chat.lastMessage = text || '[image]';
+  saveStore(store);
+
+  input.value = '';
+  pendingImageData = null;
+  document.getElementById('chatImagePreview').style.display = 'none';
+  renderChatMessages();
+  renderUserTickets();
+  if(currentUser.isAdmin) renderAdminTickets();
+  bumpPresence(activeChatId);
+}
+
+document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+document.getElementById('chatInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendChatMessage();
+  }
+});
+
+document.getElementById('chatImageInput').addEventListener('change', (e)=>{
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  if(file.size > 1.5 * 1024 * 1024){
+    alert('Max image size: 1.5 MB');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    pendingImageData = reader.result;
+    document.getElementById('chatPreviewImg').src = pendingImageData;
+    document.getElementById('chatImagePreview').style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+});
+document.getElementById('chatPreviewClear').addEventListener('click', ()=>{
+  pendingImageData = null;
+  document.getElementById('chatImagePreview').style.display = 'none';
+});
+
+/* ---------- Presence ---------- */
+function bumpPresence(chatId){
+  if(!currentUser) return;
+  const store = loadStore();
+  store.presence[currentUser.id] = {
+    id: currentUser.id,
+    name: currentUser.global_name,
+    avatar: currentUser.avatarUrl,
+    chatId: chatId || activeChatId || null,
+    lastSeen: Date.now(),
+    isAdmin: currentUser.isAdmin
+  };
+  saveStore(store);
+  if(activeChatId) renderChatPresence();
+}
+
+function setPresenceOffline(userId){
+  const store = loadStore();
+  if(store.presence[userId]){
+    store.presence[userId].lastSeen = 0;
+    saveStore(store);
+  }
+}
+
+function startPresence(){
+  stopPresence();
+  bumpPresence(activeChatId);
+  presenceTimer = setInterval(()=> bumpPresence(activeChatId), 15000);
+  storePollTimer = setInterval(()=>{
+    if(activeChatId){
+      renderChatMessages();
+      renderChatPresence();
+    }
+    if(currentUser){
+      renderUserTickets();
+      if(currentUser.isAdmin) renderAdminTickets();
+    }
+  }, 3000);
+}
+
+function stopPresence(){
+  if(presenceTimer) clearInterval(presenceTimer);
+  if(storePollTimer) clearInterval(storePollTimer);
+  presenceTimer = null;
+  storePollTimer = null;
+}
+
+function renderChatPresence(){
+  const onlineList = document.getElementById('chatOnlineList');
+  const offlineList = document.getElementById('chatOfflineList');
+  onlineList.innerHTML = '';
+  offlineList.innerHTML = '';
+  if(!activeChatId) return;
+
+  const store = loadStore();
+  const chat = store.chats.find(c => c.id === activeChatId);
+  if(!chat) return;
+
+  // Members: client + all admins who ever appeared, plus current presence
+  const members = {};
+  members[chat.clientId] = {
+    id: chat.clientId,
+    name: chat.clientName,
+    avatar: chat.clientAvatar
+  };
+  ADMIN_IDS.forEach(aid => {
+    const p = store.presence[aid];
+    members[aid] = {
+      id: aid,
+      name: (p && p.name) || (aid === LANYARD_USER_ID ? (OWNER.name || 'Admin') : 'Admin'),
+      avatar: (p && p.avatar) || (aid === LANYARD_USER_ID ? OWNER.avatar : '')
+    };
+  });
+  // Also include anyone currently present in this chat
+  Object.values(store.presence).forEach(p => {
+    if(p.chatId === activeChatId){
+      members[p.id] = { id: p.id, name: p.name, avatar: p.avatar };
+    }
+  });
+
+  const now = Date.now();
+  let onlineCount = 0, offlineCount = 0;
+  Object.values(members).forEach(m => {
+    const p = store.presence[m.id];
+    const isOnline = p && p.chatId === activeChatId && (now - (p.lastSeen || 0) < PRESENCE_TTL_MS);
+    const el = document.createElement('div');
+    el.className = 'presence-user';
+    el.innerHTML = `
+      <img src="${escapeHtml(m.avatar || '')}" alt="">
+      <span>${escapeHtml(m.name || 'User')}</span>
+    `;
+    if(isOnline){
+      onlineList.appendChild(el);
+      onlineCount++;
+    } else {
+      offlineList.appendChild(el);
+      offlineCount++;
+    }
+  });
+  if(onlineCount === 0){
+    onlineList.innerHTML = `<div class="presence-empty">—</div>`;
+  }
+  if(offlineCount === 0){
+    offlineList.innerHTML = `<div class="presence-empty">—</div>`;
+  }
+}
+
+// Cross-tab sync
+window.addEventListener('storage', (e)=>{
+  if(e.key === STORE_KEY || e.key === STORE_KEY + '_ping'){
+    if(activeChatId){
+      renderChatMessages();
+      renderChatPresence();
+    }
+    if(currentUser){
+      renderUserTickets();
+      if(currentUser.isAdmin) renderAdminTickets();
+    }
+  }
+});
+
+initDiscordLogin();
 applyLanguage('en');
 loadDiscordWidget();
