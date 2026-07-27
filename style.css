@@ -710,11 +710,40 @@
   cursor:pointer;
   transition:.3s;
   text-align:left; direction:ltr;
+  position:relative;
 }
 .ticket-card:hover{
   transform:translateY(-3px);
   border-color:var(--glass-brd-2);
   box-shadow:0 12px 32px rgba(0,0,0,.35);
+}
+.ticket-delete-btn{
+  position:absolute;
+  top:10px; right:10px;
+  width:32px; height:32px;
+  border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.45);
+  border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.55);
+  opacity:0;
+  visibility:hidden;
+  transform:scale(.9);
+  transition:opacity .2s ease, visibility .2s ease, transform .2s ease, background .2s, color .2s;
+  z-index:5;
+  flex-shrink:0;
+}
+.ticket-delete-btn svg{ width:16px; height:16px; pointer-events:none; }
+.ticket-card:hover .ticket-delete-btn{
+  opacity:1;
+  visibility:visible;
+  transform:scale(1);
+}
+.ticket-delete-btn:hover{
+  background:var(--red-700);
+  border-color:var(--red-glow);
+  color:#fff;
+  box-shadow:0 4px 14px rgba(216,18,18,.4);
 }
 .ticket-avatar{
   width:48px; height:48px; border-radius:50%;
