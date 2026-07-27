@@ -8,11 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Unbounded:wght@500;700;800;900&display=swap" rel="stylesheet">
-
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
   <!-- ============ LOADER ============ -->
   <div id="loader">
     <svg class="loader-mark" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
@@ -21,12 +19,9 @@
     <div class="loader-track"><div class="loader-bar" id="loaderBar"></div></div>
     <div class="loader-txt">Loading</div>
   </div>
-
   <!-- ============ APP ============ -->
   <div id="app">
-
     <div class="bg-sparks" id="bgSparks"></div>
-
     <div class="lang-switch" id="langSwitch">
       <button class="lang-current" id="langBtn">
         <span class="lang-badge" id="langBadgeCurrent"></span>
@@ -63,7 +58,6 @@
         </button>
       </div>
     </div>
-
     <!-- ===== DISCORD LOGIN ===== -->
     <div class="discord-login-wrap" id="discordLoginWrap">
       <a class="discord-login-btn" id="discordLoginBtn" href="#">
@@ -76,7 +70,6 @@
         <button class="discord-user-logout" id="discordLogoutBtn" title="Logout">✕</button>
       </div>
     </div>
-
     <nav>
       <button class="nav-btn active" data-page="home" data-i18n="nav_home">Overview</button>
       <button class="nav-btn" data-page="pricing" data-i18n="nav_pricing">Price,order</button>
@@ -84,7 +77,6 @@
       <button class="nav-btn nav-support" id="navSupport" data-page="support" data-i18n="nav_support" style="display:none;">Support</button>
       <button class="nav-btn nav-admin" id="navAdmin" data-page="admin" data-i18n="nav_admin" style="display:none;">Admin</button>
     </nav>
-
     <!-- ===== HOME ===== -->
     <section class="page active" id="home">
       <svg class="hero-mark" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
@@ -92,7 +84,6 @@
       </svg>
       <div class="wordmark">flash desgin</div>
       <div class="tagline-sub" data-i18n="tagline">Design isn't just an image — it's a meaning only designers understand.</div>
-
       <div class="owner-card">
         <div class="owner-avatar-wrap">
           <img class="owner-avatar" id="ownerAvatar" src="" alt="Owner avatar">
@@ -111,7 +102,6 @@
           <div class="owner-role">Owner Of flash desgin</div>
         </div>
       </div>
-
       <!-- ===== DISCORD LIVE WIDGET ===== -->
       <div class="discord-widget" id="discordWidget">
         <div class="discord-banner" id="discordBanner"></div>
@@ -127,14 +117,11 @@
         </div>
       </div>
     </section>
-
     <!-- ===== PRICING ===== -->
     <section class="page" id="pricing">
       <div class="page-title" data-i18n="pricing_title">Our Pricing</div>
       <div class="page-sub" data-i18n="pricing_sub">Choose the package that fits your server</div>
-
       <div class="pricing-grid">
-
         <div class="price-card">
           <div class="price-tier">Normal</div>
           <div class="price-amount">30<span>m</span></div>
@@ -148,7 +135,6 @@
           </ul>
           <button type="button" class="order-btn" data-package="Normal" data-i18n="order_now">Order Now</button>
         </div>
-
         <div class="price-card featured">
           <div class="price-badge" data-i18n="badge_popular">Most Popular</div>
           <div class="price-tier">Prime</div>
@@ -164,7 +150,6 @@
           </ul>
           <button type="button" class="order-btn" data-package="Prime" data-i18n="order_now">Order Now</button>
         </div>
-
         <div class="price-card">
           <div class="price-tier">Medium</div>
           <div class="price-amount">40<span>m</span></div>
@@ -179,45 +164,36 @@
           </ul>
           <button type="button" class="order-btn" data-package="Medium" data-i18n="order_now">Order Now</button>
         </div>
-
       </div>
     </section>
-
     <!-- ===== SUPPORT (user chats) ===== -->
     <section class="page" id="support">
       <div class="page-title" data-i18n="support_title">My Support</div>
       <div class="page-sub" data-i18n="support_sub">Your private design order chats</div>
       <div class="tickets-list" id="userTicketsList"></div>
     </section>
-
     <!-- ===== ADMIN ===== -->
     <section class="page" id="admin">
       <div class="page-title" data-i18n="admin_title">Admin Panel</div>
       <div class="page-sub" data-i18n="admin_sub">All design order chats</div>
       <div class="tickets-list" id="adminTicketsList"></div>
     </section>
-
     <!-- ===== WORKS ===== -->
     <section class="page" id="works">
       <div class="page-title" data-i18n="portfolio_title">Works</div>
       <div class="page-sub" data-i18n="portfolio_sub">A collection of previous designs</div>
-
       <div class="carousel-wrap">
         <button class="car-btn" id="carPrev" aria-label="Previous">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 6l-6 6 6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-
         <div class="car-stage" id="carStage"></div>
-
         <button class="car-btn" id="carNext" aria-label="Next">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 6l6 6-6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
       <div class="car-dots" id="carDots"></div>
     </section>
-
     <footer>flash desgin &copy; 2026</footer>
-
     <!-- ===== FULL PROFILE MODAL ===== -->
     <div class="profile-modal-overlay" id="profileModal">
       <div class="profile-card">
@@ -249,9 +225,7 @@
                 </div>
               </div>
             </div>
-
             <div class="profile-badges" id="profileBadges"></div>
-
             <div class="profile-activity" id="profileActivity" style="display:none;">
               <span class="activity-dot"></span>
               <div class="activity-text">
@@ -259,7 +233,6 @@
                 <div class="activity-sub" id="profileActivitySub"></div>
               </div>
             </div>
-
             <div class="profile-note-wrap" id="profileNoteWrap" style="display:none;">
               <div class="profile-note-title" data-i18n="profile_note_title">Note</div>
               <div class="profile-note" id="profileNote"></div>
@@ -268,7 +241,6 @@
         </div>
       </div>
     </div>
-
     <!-- ===== ORDER FORM MODAL ===== -->
     <div class="overlay-modal" id="orderModal">
       <div class="overlay-card order-form-card">
@@ -307,7 +279,6 @@
         </form>
       </div>
     </div>
-
     <!-- ===== CHAT OVERLAY ===== -->
     <div class="chat-overlay" id="chatOverlay">
       <div class="chat-shell">
@@ -351,9 +322,8 @@
         </div>
       </div>
     </div>
-
   </div>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
 </body>
 </html>
