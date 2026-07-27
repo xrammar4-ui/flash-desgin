@@ -67,6 +67,24 @@ const PORTFOLIO_IMAGES = [
   "https://i.ibb.co/LzGVv1wt/20260725-203026.jpg",
 ];
 
+/* =========================================================
+   SUPABASE — ضع بياناتك هنا
+   =========================================================
+   1. روح https://supabase.com → اعمل مشروع جديد
+   2. من Table Editor → New table → اسمها: store
+      - id          → int8  → Primary Key + Is Identity
+      - data        → jsonb
+      - updated_at  → timestamptz → default: now()
+   3. بعد ما تعمل الجدول: Settings → API
+      انسخ Project URL و anon public key وحطهم تحت
+   4. مهم: روح Authentication → Policies أو SQL Editor وشغّل:
+      ALTER TABLE store ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY "Allow public access" ON store FOR ALL USING (true) WITH CHECK (true);
+   (ده مؤقت عشان يشتغل بسهولة، تقدر تقفل بعدين)
+*/
+const SUPABASE_URL = "https://rwrhzkpdlgfhxnnxlmj.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3dnJoemtwZGxnaGZ4bm54bG1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNzgzMzgsImV4cCI6MjEwMDc1NDMzOH0.BFxtLNsT7kYDHvEqlTUS2tPiP65wZOlDntNYAP5HUa8";
+
 /* ========================================================= */
 
 /* ---------- Translations ---------- */
@@ -763,9 +781,116 @@ document.querySelectorAll('.discord-join').forEach(el=>{
    DISCORD LOGIN + ORDER / CHAT SYSTEM
    ========================================================= */
 const DISCORD_TOKEN_STORAGE_KEY = 'discord_access_token';
-const STORE_KEY = 'flash_desgin_store_v1';
+const STORE_KEY = 'flash_desgin_store_v1'; // لم يعد يُستخدم للتخزين الأساسي (بقي للتوافق)
 const PENDING_ORDER_KEY = 'flash_pending_order_package';
 const PRESENCE_TTL_MS = 45000;
+
+/* ---------- Supabase Store (shared across all users) ---------- */
+let supabaseClient = null;
+let _storeCache = { chats: [], messages: [], presence: {} };
+let _storeReady = false;
+let _lastStoreHash = '';
+
+function initSupabase(){
+  if(typeof window.supabase === 'undefined'){
+    console.error('Supabase JS library not loaded. Add this to your HTML before the main script:\n<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>');
+    return false;
+  }
+  if(!SUPABASE_URL || SUPABASE_URL.includes('YOUR_') || !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('YOUR_')){
+    console.warn('Supabase URL / Key not set yet. Using empty local cache until you fill them.');
+    _storeReady = true;
+    return false;
+  }
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return true;
+}
+
+async function fetchStoreFromServer(){
+  if(!supabaseClient) return _storeCache;
+  try{
+    const { data, error } = await supabaseClient
+      .from('store')
+      .select('data')
+      .eq('id', 1)
+      .maybeSingle();
+
+    if(error){
+      console.warn('Supabase fetch error:', error.message);
+      return _storeCache;
+    }
+
+    if(data && data.data){
+      const incoming = data.data;
+      _storeCache = {
+        chats: Array.isArray(incoming.chats) ? incoming.chats : [],
+        messages: Array.isArray(incoming.messages) ? incoming.messages : [],
+        presence: (incoming.presence && typeof incoming.presence === 'object') ? incoming.presence : {}
+      };
+    } else {
+      // أول مرة — أنشئ الصف
+      await supabaseClient.from('store').upsert({
+        id: 1,
+        data: _storeCache,
+        updated_at: new Date().toISOString()
+      });
+    }
+    _storeReady = true;
+    return _storeCache;
+  }catch(err){
+    console.warn('fetchStoreFromServer failed:', err);
+    _storeReady = true;
+    return _storeCache;
+  }
+}
+
+function loadStore(){
+  // يرجع الكاش المحلي (متزامن زي الكود القديم)
+  return {
+    chats: _storeCache.chats || [],
+    messages: _storeCache.messages || [],
+    presence: _storeCache.presence || {}
+  };
+}
+
+async function saveStore(store){
+  _storeCache = {
+    chats: Array.isArray(store.chats) ? store.chats : [],
+    messages: Array.isArray(store.messages) ? store.messages : [],
+    presence: (store.presence && typeof store.presence === 'object') ? store.presence : {}
+  };
+
+  if(!supabaseClient) return;
+
+  try{
+    const { error } = await supabaseClient
+      .from('store')
+      .upsert({
+        id: 1,
+        data: _storeCache,
+        updated_at: new Date().toISOString()
+      });
+    if(error) console.warn('Supabase save error:', error.message);
+  }catch(err){
+    console.warn('saveStore failed:', err);
+  }
+}
+
+// تحديث دوري من السيرفر + Realtime
+async function refreshStoreAndRender(){
+  const before = JSON.stringify(_storeCache);
+  await fetchStoreFromServer();
+  const after = JSON.stringify(_storeCache);
+  if(before !== after){
+    if(activeChatId){
+      renderChatMessages();
+      renderChatPresence();
+    }
+    if(currentUser){
+      renderUserTickets();
+      if(currentUser.isAdmin) renderAdminTickets();
+    }
+  }
+}
 
 function getDiscordAvatarUrl(user){
   if(user.avatar){
@@ -780,27 +905,6 @@ function getDiscordAvatarUrl(user){
 
 function isAdminId(id){
   return ADMIN_IDS.includes(String(id));
-}
-
-function loadStore(){
-  try{
-    const raw = localStorage.getItem(STORE_KEY);
-    if(!raw) return { chats: [], messages: [], presence: {} };
-    const data = JSON.parse(raw);
-    return {
-      chats: Array.isArray(data.chats) ? data.chats : [],
-      messages: Array.isArray(data.messages) ? data.messages : [],
-      presence: data.presence && typeof data.presence === 'object' ? data.presence : {}
-    };
-  }catch(e){
-    return { chats: [], messages: [], presence: {} };
-  }
-}
-
-function saveStore(store){
-  localStorage.setItem(STORE_KEY, JSON.stringify(store));
-  // Notify other tabs
-  try{ localStorage.setItem(STORE_KEY + '_ping', String(Date.now())); }catch(e){}
 }
 
 function uid(){
@@ -991,7 +1095,7 @@ document.getElementById('orderLogoLetters').addEventListener('input', (e)=>{
   e.target.value = v.toUpperCase();
 });
 
-document.getElementById('orderForm').addEventListener('submit', (e)=>{
+document.getElementById('orderForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   if(!currentUser){
     requireLogin();
@@ -1005,6 +1109,9 @@ document.getElementById('orderForm').addEventListener('submit', (e)=>{
 
   if(!designType || !serverName || !logoLetters || !details) return;
   if(logoLetters.length > 2) return;
+
+  // جيب أحدث نسخة من السيرفر قبل ما نضيف
+  await fetchStoreFromServer();
 
   const chatId = uid();
   const now = Date.now();
@@ -1047,7 +1154,7 @@ document.getElementById('orderForm').addEventListener('submit', (e)=>{
   const store = loadStore();
   store.chats.unshift(chat);
   store.messages.push(systemMsg);
-  saveStore(store);
+  await saveStore(store);
 
   closeOrderModal();
   renderUserTickets();
@@ -1077,9 +1184,11 @@ function canDeleteChat(chat){
   return !!currentUser.isAdmin && ADMIN_IDS.includes(String(currentUser.id));
 }
 
-function deleteChat(chatId){
+async function deleteChat(chatId){
   if(!currentUser) return;
   if(!currentUser.isAdmin || !ADMIN_IDS.includes(String(currentUser.id))) return;
+
+  await fetchStoreFromServer();
   const store = loadStore();
   const chat = store.chats.find(c => c.id === chatId);
   if(!chat || !canDeleteChat(chat)) return;
@@ -1091,7 +1200,7 @@ function deleteChat(chatId){
 
   store.chats = store.chats.filter(c => c.id !== chatId);
   store.messages = store.messages.filter(m => m.chatId !== chatId);
-  saveStore(store);
+  await saveStore(store);
 
   if(activeChatId === chatId) closeChat();
   renderUserTickets();
@@ -1235,7 +1344,8 @@ function canAccessChat(chat){
   return chat.clientId === currentUser.id;
 }
 
-function openChat(chatId){
+async function openChat(chatId){
+  await fetchStoreFromServer();
   const store = loadStore();
   const chat = store.chats.find(c => c.id === chatId);
   if(!chat || !canAccessChat(chat)) return;
@@ -1254,10 +1364,11 @@ function openChat(chatId){
   bumpPresence(chatId);
 }
 
-function toggleChatClosedStatus(){
+async function toggleChatClosedStatus(){
   if(!currentUser || !currentUser.isAdmin || !activeChatId) return;
   if(!ADMIN_IDS.includes(String(currentUser.id))) return;
 
+  await fetchStoreFromServer();
   const store = loadStore();
   const chat = store.chats.find(c => c.id === activeChatId);
   if(!chat) return;
@@ -1278,7 +1389,7 @@ function toggleChatClosedStatus(){
   };
   store.messages.push(systemMsg);
   chat.lastMessage = systemMsg.text;
-  saveStore(store);
+  await saveStore(store);
 
   renderChatMessages();
   renderUserTickets();
@@ -1356,12 +1467,13 @@ function renderChatMessages(){
   box.scrollTop = box.scrollHeight;
 }
 
-function sendChatMessage(){
+async function sendChatMessage(){
   if(!currentUser || !activeChatId) return;
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if(!text && !pendingImageData) return;
 
+  await fetchStoreFromServer();
   const store = loadStore();
   const chat = store.chats.find(c => c.id === activeChatId);
   if(!chat || !canAccessChat(chat)) return;
@@ -1380,7 +1492,7 @@ function sendChatMessage(){
   store.messages.push(msg);
   chat.lastAt = msg.createdAt;
   chat.lastMessage = text || '[image]';
-  saveStore(store);
+  await saveStore(store);
 
   input.value = '';
   pendingImageData = null;
@@ -1421,8 +1533,9 @@ document.getElementById('chatPreviewClear').addEventListener('click', ()=>{
 });
 
 /* ---------- Presence ---------- */
-function bumpPresence(chatId){
+async function bumpPresence(chatId){
   if(!currentUser) return;
+  await fetchStoreFromServer();
   const store = loadStore();
   store.presence[currentUser.id] = {
     id: currentUser.id,
@@ -1432,15 +1545,16 @@ function bumpPresence(chatId){
     lastSeen: Date.now(),
     isAdmin: currentUser.isAdmin
   };
-  saveStore(store);
+  await saveStore(store);
   if(activeChatId) renderChatPresence();
 }
 
-function setPresenceOffline(userId){
+async function setPresenceOffline(userId){
+  await fetchStoreFromServer();
   const store = loadStore();
   if(store.presence[userId]){
     store.presence[userId].lastSeen = 0;
-    saveStore(store);
+    await saveStore(store);
   }
 }
 
@@ -1448,15 +1562,9 @@ function startPresence(){
   stopPresence();
   bumpPresence(activeChatId);
   presenceTimer = setInterval(()=> bumpPresence(activeChatId), 15000);
+  // كل 3 ثواني نجيب التحديثات من السيرفر (زي القديم)
   storePollTimer = setInterval(()=>{
-    if(activeChatId){
-      renderChatMessages();
-      renderChatPresence();
-    }
-    if(currentUser){
-      renderUserTickets();
-      if(currentUser.isAdmin) renderAdminTickets();
-    }
+    refreshStoreAndRender();
   }, 3000);
 }
 
@@ -1528,20 +1636,14 @@ function renderChatPresence(){
   }
 }
 
-// Cross-tab sync
-window.addEventListener('storage', (e)=>{
-  if(e.key === STORE_KEY || e.key === STORE_KEY + '_ping'){
-    if(activeChatId){
-      renderChatMessages();
-      renderChatPresence();
-    }
-    if(currentUser){
-      renderUserTickets();
-      if(currentUser.isAdmin) renderAdminTickets();
-    }
-  }
-});
+// لم نعد نحتاج storage event لأن التخزين أصبح مشترك عبر السيرفر
+// window.addEventListener('storage' ... ) تم إزالته
 
-initDiscordLogin();
-applyLanguage('en');
-loadDiscordWidget();
+/* ---------- بدء التشغيل ---------- */
+(async function bootstrap(){
+  initSupabase();
+  await fetchStoreFromServer();   // أول تحميل من السيرفر
+  initDiscordLogin();
+  applyLanguage('en');
+  loadDiscordWidget();
+})();
