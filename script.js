@@ -954,12 +954,14 @@ async function refreshStoreAndRender(){
     if(activeChatId){
       renderChatMessages();
       renderChatPresence();
+      markChatRead(activeChatId); // stay marked while open
     }
     if(currentUser){
       renderUserTickets();
       if(currentUser.isAdmin) renderAdminTickets();
     }
   }
+  updateNavUnreadDots();
 }
 
 function getDiscordAvatarUrl(user){
@@ -1028,6 +1030,7 @@ function showLoggedInUI(user){
   startPresence();
   renderUserTickets();
   if(currentUser.isAdmin) renderAdminTickets();
+  updateNavUnreadDots();
 
   // Resume pending order after OAuth redirect
   const pendingPkg = localStorage.getItem(PENDING_ORDER_KEY);
@@ -1281,7 +1284,8 @@ function renderTicketCard(chat, opts){
   opts = opts || {};
   const isAdminView = !!opts.isAdminView;
   const card = document.createElement('div');
-  card.className = 'ticket-card' + (chat.status === 'closed' ? ' ticket-closed' : '');
+  const unread = chatHasUnread(chat) && activeChatId !== chat.id;
+  card.className = 'ticket-card' + (chat.status === 'closed' ? ' ticket-closed' : '') + (unread ? ' ticket-unread' : '');
   card.dataset.chatId = chat.id;
 
   const closedBadge = chat.status === 'closed'
@@ -1305,7 +1309,7 @@ function renderTicketCard(chat, opts){
     ${deleteBtn}
     <img class="ticket-avatar" src="${escapeHtml(chat.clientAvatar || '')}" alt="">
     <div class="ticket-body">
-      <div class="ticket-title">${escapeHtml(chat.serverName)} · ${escapeHtml(chat.package)}</div>
+      <div class="ticket-title">${unread ? '<span class="ticket-unread-dot"></span>' : ''}${escapeHtml(chat.serverName)} · ${escapeHtml(chat.package)}</div>
       <div class="ticket-meta">
         ${closedBadge}
         <span>${escapeHtml(chat.clientName || '')}</span>
@@ -1367,6 +1371,7 @@ function renderUserTickets(){
     return;
   }
   mine.forEach(c => list.appendChild(renderTicketCard(c, { isAdminView: false })));
+  updateNavUnreadDots();
 }
 
 function renderAdminTickets(){
@@ -1405,6 +1410,8 @@ function renderAdminTickets(){
   if(openChats.length === 0 && closedChats.length === 0){
     list.innerHTML = `<div class="tickets-empty">${translations[currentLang].tickets_empty_admin}</div>`;
   }
+
+  updateNavUnreadDots();
 }
 
 /* ---------- Chat ---------- */
@@ -1431,6 +1438,9 @@ async function openChat(chatId){
   renderChatPresence();
   document.getElementById('chatOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  applyChatTheme(getSavedChatTheme());
+  closeChatThemePanel();
+  markChatRead(chatId);
   bumpPresence(chatId);
 }
 
@@ -1708,6 +1718,204 @@ function renderChatPresence(){
 
 // لم نعد نحتاج storage event لأن التخزين أصبح مشترك عبر السيرفر
 // window.addEventListener('storage' ... ) تم إزالته
+
+
+
+/* ---------- Unread notifications ---------- */
+const READ_KEY = 'flash_chat_read_v1';
+
+function loadReadMap(){
+  try{ return JSON.parse(localStorage.getItem(READ_KEY) || '{}'); }catch(e){ return {}; }
+}
+function saveReadMap(map){
+  try{ localStorage.setItem(READ_KEY, JSON.stringify(map)); }catch(e){}
+}
+function getChatLastRead(chatId){
+  const map = loadReadMap();
+  const uid = currentUser ? currentUser.id : 'guest';
+  return (map[uid] && map[uid][chatId]) || 0;
+}
+function markChatRead(chatId){
+  if(!chatId) return;
+  const map = loadReadMap();
+  const uid = currentUser ? currentUser.id : 'guest';
+  if(!map[uid]) map[uid] = {};
+  map[uid][chatId] = Date.now();
+  saveReadMap(map);
+  updateUnreadIndicators();
+}
+function chatHasUnread(chat){
+  if(!chat || !currentUser) return false;
+  // system-only chats for the client who just created may count; use lastAt
+  const last = chat.lastAt || chat.createdAt || 0;
+  if(!last) return false;
+  // don't show unread for messages you just sent if lastAt is yours — still ok to use lastAt vs read
+  const readAt = getChatLastRead(chat.id);
+  return last > readAt;
+}
+function countUnreadForUser(){
+  if(!currentUser) return 0;
+  const store = loadStore();
+  let n = 0;
+  store.chats.forEach(c=>{
+    if(currentUser.isAdmin || c.clientId === currentUser.id){
+      if(activeChatId === c.id) return; // currently open
+      if(chatHasUnread(c)) n++;
+    }
+  });
+  return n;
+}
+function updateUnreadIndicators(){
+  // nav badges
+  const supportBtn = document.getElementById('navSupport');
+  const adminBtn = document.getElementById('navAdmin');
+  const n = countUnreadForUser();
+  [supportBtn, adminBtn].forEach(btn=>{
+    if(!btn) return;
+    let badge = btn.querySelector('.nav-unread-dot');
+    if(n > 0 && ((btn.id === 'navSupport' && currentUser && !currentUser.isAdmin) || (btn.id === 'navAdmin' && currentUser && currentUser.isAdmin) || (btn.id === 'navSupport' && currentUser))){
+      // show on support for everyone logged in who has unread in their chats; admin on admin tab
+      const show = (btn.id === 'navAdmin' && currentUser.isAdmin) || (btn.id === 'navSupport');
+      if(show && ((btn.id === 'navSupport' && countUnreadForUser() > 0) || (btn.id === 'navAdmin' && currentUser.isAdmin && countUnreadForUser() > 0))){
+        if(!badge){
+          badge = document.createElement('span');
+          badge.className = 'nav-unread-dot';
+          btn.style.position = 'relative';
+          btn.appendChild(badge);
+        }
+        badge.style.display = '';
+      } else if(badge){
+        badge.style.display = 'none';
+      }
+    } else if(badge){
+      badge.style.display = 'none';
+    }
+  });
+  // simpler dedicated update
+  updateNavUnreadDots();
+}
+
+function updateNavUnreadDots(){
+  const nUser = (()=>{
+    if(!currentUser) return 0;
+    const store = loadStore();
+    return store.chats.filter(c => c.clientId === currentUser.id && activeChatId !== c.id && chatHasUnread(c)).length;
+  })();
+  const nAdmin = (()=>{
+    if(!currentUser || !currentUser.isAdmin) return 0;
+    const store = loadStore();
+    return store.chats.filter(c => activeChatId !== c.id && chatHasUnread(c)).length;
+  })();
+
+  function setDot(btn, count){
+    if(!btn) return;
+    let badge = btn.querySelector('.nav-unread-dot');
+    if(count > 0){
+      if(!badge){
+        badge = document.createElement('span');
+        badge.className = 'nav-unread-dot';
+        btn.appendChild(badge);
+      }
+      badge.style.display = '';
+    } else if(badge){
+      badge.style.display = 'none';
+    }
+  }
+  setDot(document.getElementById('navSupport'), nUser > 0 || (currentUser && currentUser.isAdmin && nAdmin > 0) ? (nUser || nAdmin) : 0);
+  // Support shows user's own unread; Admin shows all unread for admins
+  setDot(document.getElementById('navSupport'), nUser);
+  setDot(document.getElementById('navAdmin'), nAdmin);
+}
+
+
+/* ---------- Chat Themes ---------- */
+const CHAT_THEMES = [
+  { id: 'default', label: { en: 'Default', ar: 'افتراضي' }, preview: 'linear-gradient(160deg,#1a0808,#0a0202)' },
+  { id: 'embers',  label: { en: 'Embers', ar: 'جمر' }, preview: 'radial-gradient(ellipse at 30% 20%, rgba(255,60,20,.35), transparent 50%), #120404' },
+  { id: 'smoke',   label: { en: 'Smoke', ar: 'دخان' }, preview: 'radial-gradient(circle at 30% 40%, rgba(180,30,30,.25), transparent 55%), #0a0303' },
+  { id: 'grid',    label: { en: 'Grid', ar: 'شبكة' }, preview: 'linear-gradient(rgba(255,40,40,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,40,40,.15) 1px, transparent 1px), #0a0303', previewSize: '12px 12px' },
+  { id: 'dots',    label: { en: 'Dots', ar: 'نقاط' }, preview: 'radial-gradient(rgba(255,60,60,.35) 1.2px, transparent 1.2px), #0b0303', previewSize: '10px 10px' },
+  { id: 'waves',   label: { en: 'Waves', ar: 'موجات' }, preview: 'repeating-linear-gradient(-12deg, transparent, transparent 6px, rgba(255,40,40,.12) 6px, rgba(255,40,40,.12) 7px), #100404' },
+  { id: 'aurora',  label: { en: 'Aurora', ar: 'شفق' }, preview: 'radial-gradient(ellipse at 20% 40%, rgba(255,40,80,.35), transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(120,20,180,.25), transparent 45%), #0c0410' },
+  { id: 'carbon',  label: { en: 'Carbon', ar: 'كربون' }, preview: 'linear-gradient(45deg, rgba(255,255,255,.06) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,.06) 25%, transparent 25%), #0a0404', previewSize: '8px 8px' },
+  { id: 'night',   label: { en: 'Night', ar: 'ليل' }, preview: 'radial-gradient(1.5px 1.5px at 30% 40%, rgba(255,220,200,.7), transparent), radial-gradient(1px 1px at 70% 60%, rgba(255,200,180,.5), transparent), #0a0512' },
+  { id: 'mesh',    label: { en: 'Mesh', ar: 'شبكة لونية' }, preview: 'radial-gradient(at 0% 0%, rgba(180,20,40,.45) 0, transparent 50%), radial-gradient(at 100% 100%, rgba(160,30,20,.35) 0, transparent 50%), #0a0204' },
+  { id: 'silk',    label: { en: 'Silk', ar: 'حرير' }, preview: 'repeating-linear-gradient(90deg, transparent 0, transparent 2px, rgba(255,255,255,.04) 2px, rgba(255,255,255,.04) 3px), linear-gradient(135deg, #140606, #0a0303)' }
+];
+
+const CHAT_THEME_KEY = 'flash_chat_theme';
+
+function getSavedChatTheme(){
+  try{ return localStorage.getItem(CHAT_THEME_KEY) || 'default'; }catch(e){ return 'default'; }
+}
+
+function applyChatTheme(themeId){
+  const box = document.getElementById('chatMessages');
+  if(!box) return;
+  // remove old theme-* classes
+  box.className = box.className
+    .split(/\s+/)
+    .filter(c => c && !c.startsWith('theme-'))
+    .join(' ');
+  box.classList.add('chat-messages');
+  box.classList.add('theme-' + (themeId || 'default'));
+  try{ localStorage.setItem(CHAT_THEME_KEY, themeId || 'default'); }catch(e){}
+
+  // update active state in grid
+  document.querySelectorAll('.chat-theme-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.theme === themeId);
+  });
+}
+
+function renderChatThemeGrid(){
+  const grid = document.getElementById('chatThemeGrid');
+  if(!grid) return;
+  const current = getSavedChatTheme();
+  grid.innerHTML = '';
+  CHAT_THEMES.forEach(t=>{
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'chat-theme-item' + (t.id === current ? ' active' : '');
+    el.dataset.theme = t.id;
+    el.style.backgroundImage = t.preview;
+    if(t.previewSize) el.style.backgroundSize = t.previewSize;
+    const label = (t.label && t.label[currentLang]) || t.label.en;
+    el.innerHTML = `<span>${label}</span>`;
+    el.addEventListener('click', ()=>{
+      applyChatTheme(t.id);
+    });
+    grid.appendChild(el);
+  });
+}
+
+function openChatThemePanel(){
+  renderChatThemeGrid();
+  const panel = document.getElementById('chatThemePanel');
+  const btn = document.getElementById('chatThemeBtn');
+  if(panel) panel.classList.add('open');
+  if(btn) btn.classList.add('active');
+}
+function closeChatThemePanel(){
+  const panel = document.getElementById('chatThemePanel');
+  const btn = document.getElementById('chatThemeBtn');
+  if(panel) panel.classList.remove('open');
+  if(btn) btn.classList.remove('active');
+}
+function toggleChatThemePanel(){
+  const panel = document.getElementById('chatThemePanel');
+  if(panel && panel.classList.contains('open')) closeChatThemePanel();
+  else openChatThemePanel();
+}
+
+(function initChatThemes(){
+  const btn = document.getElementById('chatThemeBtn');
+  const closeBtn = document.getElementById('chatThemeClose');
+  if(btn) btn.addEventListener('click', toggleChatThemePanel);
+  if(closeBtn) closeBtn.addEventListener('click', closeChatThemePanel);
+  // apply saved theme on load
+  applyChatTheme(getSavedChatTheme());
+})();
+
 
 /* ---------- بدء التشغيل ---------- */
 (async function bootstrap(){
