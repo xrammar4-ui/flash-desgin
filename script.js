@@ -1475,7 +1475,7 @@ function getChatNumber(chatId){
 
 function formatChatTitle(chat){
   const n = getChatNumber(chat.id);
-  return `الشات رقم ${n}-chat`;
+  return `${n}-chat`;
 }
 
 async function openChat(chatId){
