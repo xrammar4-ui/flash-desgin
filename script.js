@@ -152,6 +152,9 @@ const TYPING_SAVE_MIN_MS = 1800;
 let mentionActiveIndex = 0;
 let mentionMatches = [];
 let mentionQueryStart = -1;
+let _sendingMessage = false;
+let _lastSendFingerprint = '';
+let _lastSendAt = 0;
 
 const translations = {
   en: {
@@ -845,6 +848,28 @@ function mergeStore(local, remote){
     if(deleted.has(m.chatId)) return;
     if(!msgMap.has(m.id)) msgMap.set(m.id, m);
   });
+  // إزالة تكرار واضح: نفس المرسل + نفس النص + نفس الشات خلال 3 ثواني
+  const allMsgs = Array.from(msgMap.values());
+  const keep = new Map();
+  allMsgs
+    .slice()
+    .sort((a,b) => (a.createdAt||0) - (b.createdAt||0))
+    .forEach(m => {
+      if(m.type === 'system'){ keep.set(m.id, m); return; }
+      const key = [m.chatId, m.senderId, m.text || '', m.image ? '1' : '0'].join('|');
+      let dup = false;
+      for(const [, prev] of keep){
+        if(prev.type === 'system') continue;
+        const pkey = [prev.chatId, prev.senderId, prev.text || '', prev.image ? '1' : '0'].join('|');
+        if(pkey === key && Math.abs((m.createdAt||0) - (prev.createdAt||0)) < 3000){
+          dup = true;
+          break;
+        }
+      }
+      if(!dup) keep.set(m.id, m);
+    });
+  msgMap.clear();
+  keep.forEach((m, id) => msgMap.set(id, m));
 
   // presence: خذ الأحدث حسب lastSeen، واحتفظ بأطول typingUntil
   const presence = Object.assign({}, remote.presence || {});
@@ -1721,15 +1746,42 @@ function renderChatMessages(forceFull){
 }
 
 async function sendChatMessage(){
+  // قفل ضد الضغط المتكرر / Enter مرتين
+  if(_sendingMessage) return;
   if(!currentUser || !activeChatId) return;
-  const input = document.getElementById('chatInput');
-  const text = input.value.trim();
-  if(!text && !pendingImageData) return;
 
-  await fetchStoreFromServer();
-  const store = loadStore();
-  const chat = store.chats.find(c => c.id === activeChatId);
-  if(!chat || !canAccessChat(chat)) return;
+  const input = document.getElementById('chatInput');
+  const text = (input && input.value ? input.value.trim() : '');
+  const image = pendingImageData || null;
+  if(!text && !image) return;
+
+  // منع تكرار نفس الرسالة خلال ثانيتين
+  const fingerprint = activeChatId + '|' + currentUser.id + '|' + text + '|' + (image ? image.slice(0, 64) : '');
+  const now = Date.now();
+  if(fingerprint === _lastSendFingerprint && (now - _lastSendAt) < 2000){
+    if(input) input.value = '';
+    pendingImageData = null;
+    const prev = document.getElementById('chatImagePreview');
+    if(prev) prev.style.display = 'none';
+    return;
+  }
+
+  _sendingMessage = true;
+  _lastSendFingerprint = fingerprint;
+  _lastSendAt = now;
+
+  // امسح الإدخال فوراً عشان ما يتبعت مرتين
+  if(input) input.value = '';
+  pendingImageData = null;
+  const preview = document.getElementById('chatImagePreview');
+  if(preview) preview.style.display = 'none';
+  closeMentionPanel();
+  if(typingClearTimer){ clearTimeout(typingClearTimer); typingClearTimer = null; }
+  lastTypingSentAt = 0;
+
+  // عطّل الزر مؤقتاً
+  const sendBtn = document.getElementById('chatSendBtn');
+  if(sendBtn) sendBtn.disabled = true;
 
   const msg = {
     id: uid(),
@@ -1739,48 +1791,59 @@ async function sendChatMessage(){
     senderName: currentUser.global_name,
     senderAvatar: currentUser.avatarUrl,
     text: text || '',
-    image: pendingImageData || null,
-    createdAt: Date.now()
+    image: image,
+    createdAt: now
   };
-  store.messages.push(msg);
-  chat.lastAt = msg.createdAt;
-  chat.lastMessage = text || '[image]';
-  await saveStore(store);
 
-  input.value = '';
-  pendingImageData = null;
-  document.getElementById('chatImagePreview').style.display = 'none';
-  closeMentionPanel();
-  // أوقف مؤشر الكتابة بعد الإرسال
-  if(typingClearTimer){ clearTimeout(typingClearTimer); typingClearTimer = null; }
-  lastTypingSentAt = 0;
-
-  // أضف الرسالة فقط بدون مسح الشات
-  renderChatMessages();
-
-  // حدّث القوائم بهدوء (ما يأثر على شاشة الشات المفتوحة)
   try{
-    renderUserTickets();
-    if(currentUser.isAdmin) renderAdminTickets();
-  }catch(e){}
+    // حدّث الكاش محلياً فوراً (بدون انتظار الشبكة)
+    if(!_storeCache.messages) _storeCache.messages = [];
+    // حماية إضافية: لا تضف نفس الـ id مرتين
+    if(!_storeCache.messages.some(m => m.id === msg.id)){
+      _storeCache.messages.push(msg);
+    }
+    const chat = (_storeCache.chats || []).find(c => c.id === activeChatId);
+    if(chat){
+      chat.lastAt = msg.createdAt;
+      chat.lastMessage = text || '[image]';
+    }
 
-  // حدّث الحضور محلياً بدون fetch إضافي يسبب ومضة
-  try{
+    // أظهر الرسالة فوراً
+    renderChatMessages();
+
+    // حدّث typing محلياً
     if(!_storeCache.presence) _storeCache.presence = {};
-    const prev = _storeCache.presence[currentUser.id] || {};
-    _storeCache.presence[currentUser.id] = Object.assign({}, prev, {
+    const prevP = _storeCache.presence[currentUser.id] || {};
+    _storeCache.presence[currentUser.id] = Object.assign({}, prevP, {
       id: currentUser.id,
       name: currentUser.global_name,
       avatar: currentUser.avatarUrl,
       chatId: activeChatId,
-      lastSeen: Date.now(),
+      lastSeen: now,
       isAdmin: currentUser.isAdmin,
       typingUntil: 0
     });
     renderTypingIndicator();
-    // احفظ الحضور في الخلفية بدون انتظار
-    bumpPresence(activeChatId, { typingUntil: 0 });
-  }catch(e){}
+
+    // احفظ على السيرفر (مرة واحدة)
+    await saveStore({
+      chats: _storeCache.chats || [],
+      messages: _storeCache.messages || [],
+      presence: _storeCache.presence || {},
+      deletedChatIds: _storeCache.deletedChatIds || []
+    });
+
+    // حدّث قوائم التذاكر بدون ما يوقف الشات
+    try{
+      renderUserTickets();
+      if(currentUser.isAdmin) renderAdminTickets();
+    }catch(e){}
+  }catch(err){
+    console.warn('sendChatMessage failed:', err);
+  }finally{
+    _sendingMessage = false;
+    if(sendBtn) sendBtn.disabled = false;
+  }
 }
 
 document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
@@ -1815,26 +1878,39 @@ document.getElementById('chatPreviewClear').addEventListener('click', ()=>{
 /* ---------- Presence ---------- */
 async function bumpPresence(chatId, extra){
   if(!currentUser) return;
-  await fetchStoreFromServer();
-  const store = loadStore();
-  const prev = store.presence[currentUser.id] || {};
+  if(_sendingMessage) return;
+
+  if(!_storeCache.presence) _storeCache.presence = {};
+  const prev = _storeCache.presence[currentUser.id] || {};
   const now = Date.now();
-  store.presence[currentUser.id] = {
+  const typingUntil = extra && Object.prototype.hasOwnProperty.call(extra, 'typingUntil')
+    ? extra.typingUntil
+    : ((prev.typingUntil || 0) > now ? prev.typingUntil : 0);
+
+  _storeCache.presence[currentUser.id] = {
     id: currentUser.id,
     name: currentUser.global_name,
     avatar: currentUser.avatarUrl,
     chatId: chatId || activeChatId || null,
     lastSeen: now,
     isAdmin: currentUser.isAdmin,
-    typingUntil: extra && Object.prototype.hasOwnProperty.call(extra, 'typingUntil')
-      ? extra.typingUntil
-      : ((prev.typingUntil || 0) > now ? prev.typingUntil : 0)
+    typingUntil
   };
-  await saveStore(store);
+
   if(activeChatId){
     renderChatPresence();
     renderTypingIndicator();
   }
+
+  // احفظ بدون ما يقطع الواجهة
+  try{
+    await saveStore({
+      chats: _storeCache.chats || [],
+      messages: _storeCache.messages || [],
+      presence: _storeCache.presence || {},
+      deletedChatIds: _storeCache.deletedChatIds || []
+    });
+  }catch(e){}
 }
 
 async function setTypingState(isTyping){
@@ -2111,10 +2187,10 @@ async function setPresenceOffline(userId){
 function startPresence(){
   stopPresence();
   bumpPresence(activeChatId);
-  presenceTimer = setInterval(()=> bumpPresence(activeChatId), 20000);
+  presenceTimer = setInterval(()=> bumpPresence(activeChatId), 30000);
   storePollTimer = setInterval(()=>{
     refreshStoreAndRender();
-  }, 5000);
+  }, 7000);
 }
 
 function stopPresence(){
