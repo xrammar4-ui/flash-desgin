@@ -963,48 +963,64 @@ async function saveStore(store){
 }
 
 // تحديث دوري من السيرفر (أقل عدوانية عشان الرسائل متختفيش)
-function presenceTypingHash(){
+function messagesHash(){
+  const msgs = _storeCache.messages || [];
+  const last = msgs.length ? msgs[msgs.length - 1] : null;
+  return msgs.length + ':' + (last ? (last.id + ':' + (last.createdAt || 0)) : '');
+}
+
+function chatsHash(){
+  const chats = _storeCache.chats || [];
+  // id + status + lastAt فقط — بدون presence
+  return chats.map(c => c.id + ':' + (c.status || '') + ':' + (c.lastAt || 0)).sort().join('|');
+}
+
+function presenceOnlineHash(){
+  // حالة أونلاين/أوفلاين فقط (بدون lastSeen الخام عشان ما يعيد الرسم كل ثانية)
   const now = Date.now();
   return Object.keys(_storeCache.presence || {}).sort().map(id => {
     const p = _storeCache.presence[id] || {};
+    const online = (now - (p.lastSeen || 0) < PRESENCE_TTL_MS) ? '1' : '0';
     const typing = (p.typingUntil || 0) > now ? '1' : '0';
-    return id + ':' + (p.lastSeen || 0) + ':' + typing + ':' + (p.chatId || '');
+    return id + ':' + online + ':' + typing + ':' + (p.chatId || '');
   }).join('|');
 }
 
 async function refreshStoreAndRender(){
-  const beforeHash = JSON.stringify({
-    msgCount: (_storeCache.messages || []).length,
-    chatCount: (_storeCache.chats || []).length,
-    lastMsg: (_storeCache.messages || []).slice(-1)[0]?.id,
-    presence: presenceTypingHash()
-  });
+  const beforeMsg = messagesHash();
+  const beforeChats = chatsHash();
+  const beforePresence = presenceOnlineHash();
 
   await fetchStoreFromServer();
 
-  const afterHash = JSON.stringify({
-    msgCount: (_storeCache.messages || []).length,
-    chatCount: (_storeCache.chats || []).length,
-    lastMsg: (_storeCache.messages || []).slice(-1)[0]?.id,
-    presence: presenceTypingHash()
-  });
+  const afterMsg = messagesHash();
+  const afterChats = chatsHash();
+  const afterPresence = presenceOnlineHash();
 
-  if(beforeHash !== afterHash){
-    if(activeChatId){
+  const msgChanged = beforeMsg !== afterMsg;
+  const chatsChanged = beforeChats !== afterChats;
+  const presenceChanged = beforePresence !== afterPresence;
+
+  if(activeChatId){
+    if(msgChanged){
       renderChatMessages();
+      markChatRead(activeChatId);
+    }
+    if(presenceChanged || msgChanged){
       renderChatPresence();
-      renderTypingIndicator();
-      markChatRead(activeChatId); // stay marked while open
     }
-    if(currentUser){
-      renderUserTickets();
-      if(currentUser.isAdmin) renderAdminTickets();
-    }
-  } else if(activeChatId){
-    // حتى لو ما تغير الهاش — حدّث مؤشر الكتابة محلياً لو انتهى الوقت
+    // مؤشر الكتابة خفيف — يتحدث دائماً بدون إعادة رسم الرسائل
     renderTypingIndicator();
   }
-  updateNavUnreadDots();
+
+  if((chatsChanged || msgChanged) && currentUser){
+    renderUserTickets();
+    if(currentUser.isAdmin) renderAdminTickets();
+  }
+
+  if(chatsChanged || msgChanged){
+    updateNavUnreadDots();
+  }
 }
 
 function getDiscordAvatarUrl(user){
@@ -1615,6 +1631,12 @@ document.getElementById('chatBackBtn').addEventListener('click', closeChat);
 
 function renderChatMessages(){
   const box = document.getElementById('chatMessages');
+  if(!box) return;
+  // احفظ موضع السكرول — عشان ما يرجّ الشاشة
+  const prevScroll = box.scrollTop;
+  const prevHeight = box.scrollHeight;
+  const wasNearBottom = (prevHeight - prevScroll - box.clientHeight) < 80;
+
   box.innerHTML = '';
   if(!activeChatId) return;
   const store = loadStore();
@@ -1646,7 +1668,12 @@ function renderChatMessages(){
     `;
     box.appendChild(el);
   });
-  box.scrollTop = box.scrollHeight;
+  if(wasNearBottom){
+    box.scrollTop = box.scrollHeight;
+  } else {
+    // حافظ على نفس الموضع النسبي
+    box.scrollTop = prevScroll + (box.scrollHeight - prevHeight);
+  }
 }
 
 async function sendChatMessage(){
@@ -1856,15 +1883,16 @@ function stopPresence(){
 function renderChatPresence(){
   const onlineList = document.getElementById('chatOnlineList');
   const offlineList = document.getElementById('chatOfflineList');
-  onlineList.innerHTML = '';
-  offlineList.innerHTML = '';
+  const mobileDots = document.getElementById('chatMobilePresence');
+  if(onlineList) onlineList.innerHTML = '';
+  if(offlineList) offlineList.innerHTML = '';
+  if(mobileDots) mobileDots.innerHTML = '';
   if(!activeChatId) return;
 
   const store = loadStore();
   const chat = store.chats.find(c => c.id === activeChatId);
   if(!chat) return;
 
-  // Members: client + all admins (بأسمائهم وصورهم الحقيقية) + أي حضور حالي
   const members = {};
   members[chat.clientId] = {
     id: chat.clientId,
@@ -1879,40 +1907,63 @@ function renderChatPresence(){
       avatar: disp.avatar
     };
   });
-  // Also include anyone currently present in this chat (overrides with live presence)
-  Object.values(store.presence).forEach(p => {
-    if(p.chatId === activeChatId){
+  Object.values(store.presence || {}).forEach(p => {
+    if(p && p.chatId === activeChatId){
       members[p.id] = { id: p.id, name: p.name, avatar: p.avatar };
     }
   });
 
   const now = Date.now();
   let onlineCount = 0, offlineCount = 0;
+  const onlineMembers = [];
+  const offlineMembers = [];
+
   Object.values(members).forEach(m => {
     const p = store.presence[m.id];
     const isOnline = p && p.chatId === activeChatId && (now - (p.lastSeen || 0) < PRESENCE_TTL_MS);
-    const el = document.createElement('div');
-    el.className = 'presence-user';
     const avatarSrc = m.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
-    el.innerHTML = `
-      <img src="${escapeHtml(avatarSrc)}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
-      <span>${escapeHtml(m.name || 'User')}</span>
-    `;
-    if(isOnline){
-      onlineList.appendChild(el);
-      onlineCount++;
-    } else {
-      offlineList.appendChild(el);
-      offlineCount++;
+    if(onlineList && offlineList){
+      const el = document.createElement('div');
+      el.className = 'presence-user';
+      el.innerHTML = `
+        <img src="${escapeHtml(avatarSrc)}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+        <span>${escapeHtml(m.name || 'User')}</span>
+      `;
+      if(isOnline){
+        onlineList.appendChild(el);
+        onlineCount++;
+      } else {
+        offlineList.appendChild(el);
+        offlineCount++;
+      }
     }
+    if(isOnline) onlineMembers.push(m);
+    else offlineMembers.push(m);
   });
-  if(onlineCount === 0){
+
+  if(onlineList && onlineCount === 0){
     onlineList.innerHTML = `<div class="presence-empty">—</div>`;
   }
-  if(offlineCount === 0){
+  if(offlineList && offlineCount === 0){
     offlineList.innerHTML = `<div class="presence-empty">—</div>`;
   }
+
+  // نقاط الجوال: أقصى 3 أفاتار (أونلاين أولاً) مع حلقة حالة شفافة
+  if(mobileDots){
+    const ordered = onlineMembers.concat(offlineMembers).slice(0, 3);
+    ordered.forEach(m => {
+      const p = store.presence[m.id];
+      const isOnline = p && p.chatId === activeChatId && (now - (p.lastSeen || 0) < PRESENCE_TTL_MS);
+      const avatarSrc = m.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+      const dot = document.createElement('div');
+      dot.className = 'chat-m-dot' + (isOnline ? ' is-online' : ' is-offline');
+      dot.title = (m.name || 'User') + (isOnline ? ' · online' : ' · offline');
+      dot.innerHTML = `<img src="${escapeHtml(avatarSrc)}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">`;
+      mobileDots.appendChild(dot);
+    });
+  }
 }
+
 
 // لم نعد نحتاج storage event لأن التخزين أصبح مشترك عبر السيرفر
 // window.addEventListener('storage' ... ) تم إزالته
