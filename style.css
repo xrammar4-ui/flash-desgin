@@ -1276,8 +1276,8 @@
   display:none;
   flex-direction:column;
   border-top:1px solid rgba(255,255,255,.08);
-  background:rgba(8,2,2,.97);
-  max-height:230px;
+  background:rgba(8,2,2,.95);
+  max-height:200px;
   overflow:hidden;
 }
 .chat-theme-panel.open{
@@ -1303,19 +1303,17 @@
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
   scrollbar-width:thin;
-  flex-wrap:nowrap;
 }
 .chat-theme-item{
-  width:88px; height:60px; flex-shrink:0;
+  width:72px; height:52px; flex-shrink:0;
   border-radius:12px;
-  border:2px solid rgba(255,255,255,.15);
+  border:2px solid rgba(255,255,255,.12);
   cursor:pointer;
   position:relative;
   overflow:hidden;
   transition:.2s;
   background-size:cover;
   background-position:center;
-  background-color:#1a0808;
 }
 .chat-theme-item:hover{
   transform:translateY(-2px);
@@ -1465,15 +1463,4 @@
 }
 @media (max-width:900px){
   .nav-unread-dot{ top: 4px; right: 6px; width: 7px; height: 7px; }
-}
-
-
-.chat-messages{
-  background-repeat: no-repeat !important;
-}
-.chat-messages.theme-default{
-  background-image: none !important;
-  background:
-    radial-gradient(ellipse at 20% 0%, rgba(255,40,40,.04), transparent 50%),
-    transparent;
 }
