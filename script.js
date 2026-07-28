@@ -805,6 +805,40 @@ function initSupabase(){
   return true;
 }
 
+// دمج آمن: الرسائل والشاتات تتضاف بالـ ID ومش بتتسمحش
+function mergeStore(local, remote){
+  const chatMap = new Map();
+  (remote.chats || []).forEach(c => chatMap.set(c.id, c));
+  (local.chats || []).forEach(c => {
+    const existing = chatMap.get(c.id);
+    if(!existing || (c.lastAt || 0) >= (existing.lastAt || 0)){
+      chatMap.set(c.id, c);
+    }
+  });
+
+  const msgMap = new Map();
+  (remote.messages || []).forEach(m => msgMap.set(m.id, m));
+  (local.messages || []).forEach(m => {
+    if(!msgMap.has(m.id)) msgMap.set(m.id, m);
+  });
+
+  // presence: خذ الأحدث حسب lastSeen
+  const presence = Object.assign({}, remote.presence || {});
+  Object.keys(local.presence || {}).forEach(uid => {
+    const lp = local.presence[uid];
+    const rp = presence[uid];
+    if(!rp || (lp.lastSeen || 0) >= (rp.lastSeen || 0)){
+      presence[uid] = lp;
+    }
+  });
+
+  return {
+    chats: Array.from(chatMap.values()).sort((a,b) => (b.lastAt||0) - (a.lastAt||0)),
+    messages: Array.from(msgMap.values()),
+    presence
+  };
+}
+
 async function fetchStoreFromServer(){
   if(!supabaseClient) return _storeCache;
   try{
@@ -821,11 +855,13 @@ async function fetchStoreFromServer(){
 
     if(data && data.data){
       const incoming = data.data;
-      _storeCache = {
+      const remote = {
         chats: Array.isArray(incoming.chats) ? incoming.chats : [],
         messages: Array.isArray(incoming.messages) ? incoming.messages : [],
         presence: (incoming.presence && typeof incoming.presence === 'object') ? incoming.presence : {}
       };
+      // ادمج مع الكاش المحلي عشان الرسائل الجديدة متضيعش
+      _storeCache = mergeStore(_storeCache, remote);
     } else {
       // أول مرة — أنشئ الصف
       await supabaseClient.from('store').upsert({
@@ -844,7 +880,6 @@ async function fetchStoreFromServer(){
 }
 
 function loadStore(){
-  // يرجع الكاش المحلي (متزامن زي الكود القديم)
   return {
     chats: _storeCache.chats || [],
     messages: _storeCache.messages || [],
@@ -852,7 +887,11 @@ function loadStore(){
   };
 }
 
+let _saveLock = false;
+let _pendingSave = null;
+
 async function saveStore(store){
+  // حدّث الكاش المحلي فورًا
   _storeCache = {
     chats: Array.isArray(store.chats) ? store.chats : [],
     messages: Array.isArray(store.messages) ? store.messages : [],
@@ -861,7 +900,18 @@ async function saveStore(store){
 
   if(!supabaseClient) return;
 
+  // لو في حفظ شغال، نخزن الطلب الأخير وننفذه بعده
+  if(_saveLock){
+    _pendingSave = _storeCache;
+    return;
+  }
+
+  _saveLock = true;
   try{
+    // قبل الحفظ: جيب أحدث نسخة وادمج
+    await fetchStoreFromServer();
+    _storeCache = mergeStore(_storeCache, _storeCache);
+
     const { error } = await supabaseClient
       .from('store')
       .upsert({
@@ -872,15 +922,35 @@ async function saveStore(store){
     if(error) console.warn('Supabase save error:', error.message);
   }catch(err){
     console.warn('saveStore failed:', err);
+  }finally{
+    _saveLock = false;
+    if(_pendingSave){
+      const next = _pendingSave;
+      _pendingSave = null;
+      await saveStore(next);
+    }
   }
 }
 
-// تحديث دوري من السيرفر + Realtime
+// تحديث دوري من السيرفر (أقل عدوانية عشان الرسائل متختفيش)
 async function refreshStoreAndRender(){
-  const before = JSON.stringify(_storeCache);
+  const beforeHash = JSON.stringify({
+    msgCount: (_storeCache.messages || []).length,
+    chatCount: (_storeCache.chats || []).length,
+    lastMsg: (_storeCache.messages || []).slice(-1)[0]?.id,
+    presenceKeys: Object.keys(_storeCache.presence || {}).sort().join(',')
+  });
+
   await fetchStoreFromServer();
-  const after = JSON.stringify(_storeCache);
-  if(before !== after){
+
+  const afterHash = JSON.stringify({
+    msgCount: (_storeCache.messages || []).length,
+    chatCount: (_storeCache.chats || []).length,
+    lastMsg: (_storeCache.messages || []).slice(-1)[0]?.id,
+    presenceKeys: Object.keys(_storeCache.presence || {}).sort().join(',')
+  });
+
+  if(beforeHash !== afterHash){
     if(activeChatId){
       renderChatMessages();
       renderChatPresence();
@@ -1561,11 +1631,11 @@ async function setPresenceOffline(userId){
 function startPresence(){
   stopPresence();
   bumpPresence(activeChatId);
-  presenceTimer = setInterval(()=> bumpPresence(activeChatId), 15000);
+  presenceTimer = setInterval(()=> bumpPresence(activeChatId), 20000);
   // كل 3 ثواني نجيب التحديثات من السيرفر (زي القديم)
   storePollTimer = setInterval(()=>{
     refreshStoreAndRender();
-  }, 3000);
+  }, 5000);
 }
 
 function stopPresence(){
