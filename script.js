@@ -65,6 +65,7 @@ const PORTFOLIO_IMAGES = [
   "https://i.ibb.co/C358MFgB/20260305-175531.png",
   "https://i.ibb.co/XxVbc6wJ/20260305-204354.png",
   "https://i.ibb.co/LzGVv1wt/20260725-203026.jpg",
+  "https://i.ibb.co/2Y831zfR/20260728-135300.jpg",
 ];
 
 /* =========================================================
