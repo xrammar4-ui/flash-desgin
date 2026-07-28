@@ -144,6 +144,11 @@ let activeChatId = null;
 let pendingImageData = null;
 let presenceTimer = null;
 let storePollTimer = null;
+let typingSaveTimer = null;
+let typingClearTimer = null;
+let lastTypingSentAt = 0;
+const TYPING_TTL_MS = 4000;
+const TYPING_SAVE_MIN_MS = 1800;
 
 const translations = {
   en: {
@@ -206,7 +211,9 @@ const translations = {
     closed_chats: "Closed chats",
     chat_closed: "Chat closed",
     chat_reopened: "Chat reopened",
-    status_closed: "Closed"
+    status_closed: "Closed",
+    typing_one: "is typing…",
+    typing_many: "are typing…"
   },
   ar: {
     nav_home: "التعريف",
@@ -268,7 +275,9 @@ const translations = {
     closed_chats: "الشاتات المقفلة",
     chat_closed: "تم قفل الشات",
     chat_reopened: "تم إعادة فتح الشات",
-    status_closed: "مقفل"
+    status_closed: "مقفل",
+    typing_one: "يكتب…",
+    typing_many: "يكتبون…"
   }
 };
 
@@ -834,13 +843,19 @@ function mergeStore(local, remote){
     if(!msgMap.has(m.id)) msgMap.set(m.id, m);
   });
 
-  // presence: خذ الأحدث حسب lastSeen
+  // presence: خذ الأحدث حسب lastSeen، واحتفظ بأطول typingUntil
   const presence = Object.assign({}, remote.presence || {});
   Object.keys(local.presence || {}).forEach(uid => {
     const lp = local.presence[uid];
     const rp = presence[uid];
     if(!rp || (lp.lastSeen || 0) >= (rp.lastSeen || 0)){
-      presence[uid] = lp;
+      const merged = Object.assign({}, rp || {}, lp);
+      merged.typingUntil = Math.max(lp.typingUntil || 0, (rp && rp.typingUntil) || 0);
+      presence[uid] = merged;
+    } else if(rp){
+      rp.typingUntil = Math.max(rp.typingUntil || 0, lp.typingUntil || 0);
+      // لو المحلي أحدث في الكتابة فقط
+      if((lp.typingUntil || 0) > (rp.typingUntil || 0)) rp.typingUntil = lp.typingUntil;
     }
   });
 
@@ -948,12 +963,21 @@ async function saveStore(store){
 }
 
 // تحديث دوري من السيرفر (أقل عدوانية عشان الرسائل متختفيش)
+function presenceTypingHash(){
+  const now = Date.now();
+  return Object.keys(_storeCache.presence || {}).sort().map(id => {
+    const p = _storeCache.presence[id] || {};
+    const typing = (p.typingUntil || 0) > now ? '1' : '0';
+    return id + ':' + (p.lastSeen || 0) + ':' + typing + ':' + (p.chatId || '');
+  }).join('|');
+}
+
 async function refreshStoreAndRender(){
   const beforeHash = JSON.stringify({
     msgCount: (_storeCache.messages || []).length,
     chatCount: (_storeCache.chats || []).length,
     lastMsg: (_storeCache.messages || []).slice(-1)[0]?.id,
-    presenceKeys: Object.keys(_storeCache.presence || {}).sort().join(',')
+    presence: presenceTypingHash()
   });
 
   await fetchStoreFromServer();
@@ -962,19 +986,23 @@ async function refreshStoreAndRender(){
     msgCount: (_storeCache.messages || []).length,
     chatCount: (_storeCache.chats || []).length,
     lastMsg: (_storeCache.messages || []).slice(-1)[0]?.id,
-    presenceKeys: Object.keys(_storeCache.presence || {}).sort().join(',')
+    presence: presenceTypingHash()
   });
 
   if(beforeHash !== afterHash){
     if(activeChatId){
       renderChatMessages();
       renderChatPresence();
+      renderTypingIndicator();
       markChatRead(activeChatId); // stay marked while open
     }
     if(currentUser){
       renderUserTickets();
       if(currentUser.isAdmin) renderAdminTickets();
     }
+  } else if(activeChatId){
+    // حتى لو ما تغير الهاش — حدّث مؤشر الكتابة محلياً لو انتهى الوقت
+    renderTypingIndicator();
   }
   updateNavUnreadDots();
 }
@@ -1492,6 +1520,7 @@ async function openChat(chatId){
 
   renderChatMessages();
   renderChatPresence();
+  renderTypingIndicator();
   document.getElementById('chatOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   ensureChatThemeUI();
@@ -1560,12 +1589,25 @@ document.addEventListener('keyup', (e)=>{
 document.addEventListener('blur', ()=>{ _tabHeld = false; });
 
 function closeChat(){
+  if(currentUser && activeChatId){
+    // أوقف الكتابة عند إغلاق الشات (بدون انتظار)
+    try{
+      if(_storeCache.presence && _storeCache.presence[currentUser.id]){
+        _storeCache.presence[currentUser.id].typingUntil = 0;
+      }
+      bumpPresence(null, { typingUntil: 0 });
+    }catch(e){}
+  }
+  if(typingClearTimer){ clearTimeout(typingClearTimer); typingClearTimer = null; }
+  lastTypingSentAt = 0;
   document.getElementById('chatOverlay').classList.remove('open');
   document.body.style.overflow = '';
   activeChatId = null;
   pendingImageData = null;
   document.getElementById('chatImagePreview').style.display = 'none';
   document.getElementById('chatInput').value = '';
+  const typingEl = document.getElementById('chatTyping');
+  if(typingEl){ typingEl.style.display = 'none'; typingEl.textContent = ''; }
 }
 
 document.getElementById('chatCloseBtn').addEventListener('click', closeChat);
@@ -1594,10 +1636,12 @@ function renderChatMessages(){
     el.innerHTML = `
       <img class="msg-avatar" src="${escapeHtml(m.senderAvatar || '')}" alt="">
       <div class="msg-bubble">
-        <div class="msg-author">${escapeHtml(m.senderName || '')}</div>
+        <div class="msg-author">
+          <span class="msg-author-name">${escapeHtml(m.senderName || '')}</span>
+          <span class="msg-time">${formatMsgTime(m.createdAt)}</span>
+        </div>
         ${m.text ? `<div class="msg-text">${escapeHtml(m.text)}</div>` : ''}
         ${m.image ? `<img class="msg-img" src="${m.image}" alt="attachment">` : ''}
-        <div class="msg-time">${formatMsgTime(m.createdAt)}</div>
       </div>
     `;
     box.appendChild(el);
@@ -1635,10 +1679,13 @@ async function sendChatMessage(){
   input.value = '';
   pendingImageData = null;
   document.getElementById('chatImagePreview').style.display = 'none';
+  // أوقف مؤشر الكتابة بعد الإرسال
+  if(typingClearTimer){ clearTimeout(typingClearTimer); typingClearTimer = null; }
+  lastTypingSentAt = 0;
   renderChatMessages();
   renderUserTickets();
   if(currentUser.isAdmin) renderAdminTickets();
-  bumpPresence(activeChatId);
+  await bumpPresence(activeChatId, { typingUntil: 0 });
 }
 
 document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
@@ -1648,6 +1695,7 @@ document.getElementById('chatInput').addEventListener('keydown', (e)=>{
     sendChatMessage();
   }
 });
+document.getElementById('chatInput').addEventListener('input', onChatInputTyping);
 
 document.getElementById('chatImageInput').addEventListener('change', (e)=>{
   const file = e.target.files && e.target.files[0];
@@ -1671,20 +1719,108 @@ document.getElementById('chatPreviewClear').addEventListener('click', ()=>{
 });
 
 /* ---------- Presence ---------- */
-async function bumpPresence(chatId){
+async function bumpPresence(chatId, extra){
   if(!currentUser) return;
   await fetchStoreFromServer();
   const store = loadStore();
+  const prev = store.presence[currentUser.id] || {};
+  const now = Date.now();
   store.presence[currentUser.id] = {
     id: currentUser.id,
     name: currentUser.global_name,
     avatar: currentUser.avatarUrl,
     chatId: chatId || activeChatId || null,
-    lastSeen: Date.now(),
-    isAdmin: currentUser.isAdmin
+    lastSeen: now,
+    isAdmin: currentUser.isAdmin,
+    typingUntil: extra && Object.prototype.hasOwnProperty.call(extra, 'typingUntil')
+      ? extra.typingUntil
+      : ((prev.typingUntil || 0) > now ? prev.typingUntil : 0)
   };
   await saveStore(store);
-  if(activeChatId) renderChatPresence();
+  if(activeChatId){
+    renderChatPresence();
+    renderTypingIndicator();
+  }
+}
+
+async function setTypingState(isTyping){
+  if(!currentUser || !activeChatId) return;
+  const now = Date.now();
+  if(isTyping){
+    if(now - lastTypingSentAt < TYPING_SAVE_MIN_MS){
+      if(!_storeCache.presence) _storeCache.presence = {};
+      const p = _storeCache.presence[currentUser.id] || {
+        id: currentUser.id,
+        name: currentUser.global_name,
+        avatar: currentUser.avatarUrl,
+        chatId: activeChatId,
+        isAdmin: currentUser.isAdmin
+      };
+      p.typingUntil = now + TYPING_TTL_MS;
+      p.lastSeen = now;
+      p.chatId = activeChatId;
+      _storeCache.presence[currentUser.id] = p;
+      return;
+    }
+    lastTypingSentAt = now;
+    await bumpPresence(activeChatId, { typingUntil: now + TYPING_TTL_MS });
+  } else {
+    lastTypingSentAt = 0;
+    await bumpPresence(activeChatId, { typingUntil: 0 });
+  }
+}
+
+function onChatInputTyping(){
+  if(!currentUser || !activeChatId) return;
+  const input = document.getElementById('chatInput');
+  const hasText = !!(input && input.value.trim());
+
+  if(typingClearTimer){
+    clearTimeout(typingClearTimer);
+    typingClearTimer = null;
+  }
+
+  if(!hasText){
+    setTypingState(false);
+    return;
+  }
+
+  setTypingState(true);
+  typingClearTimer = setTimeout(()=>{
+    setTypingState(false);
+  }, TYPING_TTL_MS);
+}
+
+function renderTypingIndicator(){
+  const el = document.getElementById('chatTyping');
+  if(!el) return;
+  if(!activeChatId){
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  const store = loadStore();
+  const now = Date.now();
+  const typers = [];
+  Object.values(store.presence || {}).forEach(p => {
+    if(!p || !p.id) return;
+    if(currentUser && String(p.id) === String(currentUser.id)) return;
+    if(p.chatId !== activeChatId) return;
+    if((p.typingUntil || 0) > now){
+      typers.push(p.name || 'User');
+    }
+  });
+  if(typers.length === 0){
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  const label = typers.length === 1
+    ? translations[currentLang].typing_one
+    : translations[currentLang].typing_many;
+  const names = typers.slice(0, 3).join(', ');
+  el.innerHTML = `<span class="chat-typing-names">${escapeHtml(names)}</span> <span class="chat-typing-label">${escapeHtml(label)}</span><span class="chat-typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>`;
+  el.style.display = 'flex';
 }
 
 async function setPresenceOffline(userId){
@@ -1692,6 +1828,7 @@ async function setPresenceOffline(userId){
   const store = loadStore();
   if(store.presence[userId]){
     store.presence[userId].lastSeen = 0;
+    store.presence[userId].typingUntil = 0;
     await saveStore(store);
   }
 }
@@ -1700,17 +1837,20 @@ function startPresence(){
   stopPresence();
   bumpPresence(activeChatId);
   presenceTimer = setInterval(()=> bumpPresence(activeChatId), 20000);
-  // كل 3 ثواني نجيب التحديثات من السيرفر (زي القديم)
   storePollTimer = setInterval(()=>{
     refreshStoreAndRender();
-  }, 5000);
+  }, 3000);
 }
 
 function stopPresence(){
   if(presenceTimer) clearInterval(presenceTimer);
   if(storePollTimer) clearInterval(storePollTimer);
+  if(typingSaveTimer) clearTimeout(typingSaveTimer);
+  if(typingClearTimer) clearTimeout(typingClearTimer);
   presenceTimer = null;
   storePollTimer = null;
+  typingSaveTimer = null;
+  typingClearTimer = null;
 }
 
 function renderChatPresence(){
