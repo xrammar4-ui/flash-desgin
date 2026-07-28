@@ -941,9 +941,16 @@ async function saveStore(store){
 
   _saveLock = true;
   try{
-    // قبل الحفظ: جيب أحدث نسخة وادمج
+    // احتفظ بنسخة محلية قبل الجلب عشان الرسائل الجديدة ما تضيع
+    const localSnapshot = {
+      chats: (_storeCache.chats || []).slice(),
+      messages: (_storeCache.messages || []).slice(),
+      presence: Object.assign({}, _storeCache.presence || {}),
+      deletedChatIds: (_storeCache.deletedChatIds || []).slice()
+    };
     await fetchStoreFromServer();
-    _storeCache = mergeStore(_storeCache, _storeCache);
+    // ادمج اللوكال (الرسائل الجديدة) فوق الريموت
+    _storeCache = mergeStore(localSnapshot, _storeCache);
 
     const { error } = await supabaseClient
       .from('store')
@@ -968,8 +975,9 @@ async function saveStore(store){
 // تحديث دوري من السيرفر (أقل عدوانية عشان الرسائل متختفيش)
 function messagesHash(){
   const msgs = _storeCache.messages || [];
-  const last = msgs.length ? msgs[msgs.length - 1] : null;
-  return msgs.length + ':' + (last ? (last.id + ':' + (last.createdAt || 0)) : '');
+  // هاش ثابت: عدد + كل الـ IDs مرتبة (ما يتأثر بترتيب المصفوفة)
+  const ids = msgs.map(m => m.id).sort();
+  return msgs.length + ':' + ids.join(',');
 }
 
 function chatsHash(){
@@ -1633,49 +1641,81 @@ function closeChat(){
 document.getElementById('chatCloseBtn').addEventListener('click', closeChat);
 document.getElementById('chatBackBtn').addEventListener('click', closeChat);
 
-function renderChatMessages(){
+function buildMessageElement(m){
+  if(m.type === 'system'){
+    const el = document.createElement('div');
+    el.className = 'msg-system';
+    el.dataset.msgId = m.id;
+    el.textContent = m.text;
+    return el;
+  }
+  const mine = currentUser && m.senderId === currentUser.id;
+  const el = document.createElement('div');
+  el.className = 'msg' + (mine ? ' mine' : '');
+  el.dataset.msgId = m.id;
+  el.innerHTML = `
+    <img class="msg-avatar" src="${escapeHtml(m.senderAvatar || '')}" alt="">
+    <div class="msg-bubble">
+      <div class="msg-author">
+        <span class="msg-author-name">${escapeHtml(m.senderName || '')}</span>
+        <span class="msg-time">${formatMsgTime(m.createdAt)}</span>
+      </div>
+      ${m.text ? `<div class="msg-text">${formatMessageText(m.text)}</div>` : ''}
+      ${m.image ? `<img class="msg-img" src="${m.image}" alt="attachment">` : ''}
+    </div>
+  `;
+  return el;
+}
+
+function renderChatMessages(forceFull){
   const box = document.getElementById('chatMessages');
   if(!box) return;
-  // احفظ موضع السكرول — عشان ما يرجّ الشاشة
-  const prevScroll = box.scrollTop;
-  const prevHeight = box.scrollHeight;
-  const wasNearBottom = (prevHeight - prevScroll - box.clientHeight) < 80;
+  if(!activeChatId){
+    box.innerHTML = '';
+    return;
+  }
 
-  box.innerHTML = '';
-  if(!activeChatId) return;
   const store = loadStore();
   const msgs = store.messages
     .filter(m => m.chatId === activeChatId)
     .sort((a,b) => a.createdAt - b.createdAt);
 
-  msgs.forEach(m => {
-    if(m.type === 'system'){
-      const el = document.createElement('div');
-      el.className = 'msg-system';
-      el.textContent = m.text;
-      box.appendChild(el);
-      return;
+  const existing = Array.from(box.querySelectorAll('[data-msg-id]'));
+  const existingIds = existing.map(el => el.dataset.msgId);
+  const newIds = msgs.map(m => m.id);
+
+  // لو نفس الرسائل بنفس الترتيب — لا تعيد الرسم أبداً
+  if(!forceFull && existingIds.length === newIds.length && existingIds.every((id, i) => id === newIds[i])){
+    return;
+  }
+
+  // لو الرسائل القديمة موجودة بالترتيب وفي الآخر رسائل جديدة فقط — أضف الجديد فقط
+  const canAppend =
+    !forceFull &&
+    existingIds.length > 0 &&
+    existingIds.length < newIds.length &&
+    existingIds.every((id, i) => id === newIds[i]);
+
+  const wasNearBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 100;
+
+  if(canAppend){
+    for(let i = existingIds.length; i < msgs.length; i++){
+      box.appendChild(buildMessageElement(msgs[i]));
     }
-    const mine = currentUser && m.senderId === currentUser.id;
-    const el = document.createElement('div');
-    el.className = 'msg' + (mine ? ' mine' : '');
-    el.innerHTML = `
-      <img class="msg-avatar" src="${escapeHtml(m.senderAvatar || '')}" alt="">
-      <div class="msg-bubble">
-        <div class="msg-author">
-          <span class="msg-author-name">${escapeHtml(m.senderName || '')}</span>
-          <span class="msg-time">${formatMsgTime(m.createdAt)}</span>
-        </div>
-        ${m.text ? `<div class="msg-text">${formatMessageText(m.text)}</div>` : ''}
-        ${m.image ? `<img class="msg-img" src="${m.image}" alt="attachment">` : ''}
-      </div>
-    `;
-    box.appendChild(el);
-  });
-  if(wasNearBottom){
+    if(wasNearBottom){
+      box.scrollTop = box.scrollHeight;
+    }
+    return;
+  }
+
+  // إعادة بناء كاملة فقط عند اختلاف الترتيب/الحذف
+  const prevScroll = box.scrollTop;
+  const prevHeight = box.scrollHeight;
+  box.innerHTML = '';
+  msgs.forEach(m => box.appendChild(buildMessageElement(m)));
+  if(wasNearBottom || existingIds.length === 0){
     box.scrollTop = box.scrollHeight;
   } else {
-    // حافظ على نفس الموضع النسبي
     box.scrollTop = prevScroll + (box.scrollHeight - prevHeight);
   }
 }
@@ -1710,13 +1750,37 @@ async function sendChatMessage(){
   input.value = '';
   pendingImageData = null;
   document.getElementById('chatImagePreview').style.display = 'none';
+  closeMentionPanel();
   // أوقف مؤشر الكتابة بعد الإرسال
   if(typingClearTimer){ clearTimeout(typingClearTimer); typingClearTimer = null; }
   lastTypingSentAt = 0;
+
+  // أضف الرسالة فقط بدون مسح الشات
   renderChatMessages();
-  renderUserTickets();
-  if(currentUser.isAdmin) renderAdminTickets();
-  await bumpPresence(activeChatId, { typingUntil: 0 });
+
+  // حدّث القوائم بهدوء (ما يأثر على شاشة الشات المفتوحة)
+  try{
+    renderUserTickets();
+    if(currentUser.isAdmin) renderAdminTickets();
+  }catch(e){}
+
+  // حدّث الحضور محلياً بدون fetch إضافي يسبب ومضة
+  try{
+    if(!_storeCache.presence) _storeCache.presence = {};
+    const prev = _storeCache.presence[currentUser.id] || {};
+    _storeCache.presence[currentUser.id] = Object.assign({}, prev, {
+      id: currentUser.id,
+      name: currentUser.global_name,
+      avatar: currentUser.avatarUrl,
+      chatId: activeChatId,
+      lastSeen: Date.now(),
+      isAdmin: currentUser.isAdmin,
+      typingUntil: 0
+    });
+    renderTypingIndicator();
+    // احفظ الحضور في الخلفية بدون انتظار
+    bumpPresence(activeChatId, { typingUntil: 0 });
+  }catch(e){}
 }
 
 document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
