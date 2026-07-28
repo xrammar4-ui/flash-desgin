@@ -787,7 +787,7 @@ const PRESENCE_TTL_MS = 45000;
 
 /* ---------- Supabase Store (shared across all users) ---------- */
 let supabaseClient = null;
-let _storeCache = { chats: [], messages: [], presence: {} };
+let _storeCache = { chats: [], messages: [], presence: {}, deletedChatIds: [] };
 let _storeReady = false;
 let _lastStoreHash = '';
 
@@ -807,9 +807,17 @@ function initSupabase(){
 
 // دمج آمن: الرسائل والشاتات تتضاف بالـ ID ومش بتتسمحش
 function mergeStore(local, remote){
+  const deleted = new Set([
+    ...((local && local.deletedChatIds) || []),
+    ...((remote && remote.deletedChatIds) || [])
+  ]);
+
   const chatMap = new Map();
-  (remote.chats || []).forEach(c => chatMap.set(c.id, c));
+  (remote.chats || []).forEach(c => {
+    if(!deleted.has(c.id)) chatMap.set(c.id, c);
+  });
   (local.chats || []).forEach(c => {
+    if(deleted.has(c.id)) return;
     const existing = chatMap.get(c.id);
     if(!existing || (c.lastAt || 0) >= (existing.lastAt || 0)){
       chatMap.set(c.id, c);
@@ -817,8 +825,11 @@ function mergeStore(local, remote){
   });
 
   const msgMap = new Map();
-  (remote.messages || []).forEach(m => msgMap.set(m.id, m));
+  (remote.messages || []).forEach(m => {
+    if(!deleted.has(m.chatId)) msgMap.set(m.id, m);
+  });
   (local.messages || []).forEach(m => {
+    if(deleted.has(m.chatId)) return;
     if(!msgMap.has(m.id)) msgMap.set(m.id, m);
   });
 
@@ -835,7 +846,8 @@ function mergeStore(local, remote){
   return {
     chats: Array.from(chatMap.values()).sort((a,b) => (b.lastAt||0) - (a.lastAt||0)),
     messages: Array.from(msgMap.values()),
-    presence
+    presence,
+    deletedChatIds: Array.from(deleted)
   };
 }
 
@@ -883,7 +895,8 @@ function loadStore(){
   return {
     chats: _storeCache.chats || [],
     messages: _storeCache.messages || [],
-    presence: _storeCache.presence || {}
+    presence: _storeCache.presence || {},
+    deletedChatIds: _storeCache.deletedChatIds || []
   };
 }
 
@@ -895,7 +908,8 @@ async function saveStore(store){
   _storeCache = {
     chats: Array.isArray(store.chats) ? store.chats : [],
     messages: Array.isArray(store.messages) ? store.messages : [],
-    presence: (store.presence && typeof store.presence === 'object') ? store.presence : {}
+    presence: (store.presence && typeof store.presence === 'object') ? store.presence : {},
+    deletedChatIds: Array.isArray(store.deletedChatIds) ? store.deletedChatIds : (_storeCache.deletedChatIds || [])
   };
 
   if(!supabaseClient) return;
@@ -954,12 +968,14 @@ async function refreshStoreAndRender(){
     if(activeChatId){
       renderChatMessages();
       renderChatPresence();
+      markChatRead(activeChatId); // stay marked while open
     }
     if(currentUser){
       renderUserTickets();
       if(currentUser.isAdmin) renderAdminTickets();
     }
   }
+  updateNavUnreadDots();
 }
 
 function getDiscordAvatarUrl(user){
@@ -1028,6 +1044,7 @@ function showLoggedInUI(user){
   startPresence();
   renderUserTickets();
   if(currentUser.isAdmin) renderAdminTickets();
+  updateNavUnreadDots();
 
   // Resume pending order after OAuth redirect
   const pendingPkg = localStorage.getItem(PENDING_ORDER_KEY);
@@ -1268,20 +1285,50 @@ async function deleteChat(chatId){
     : 'Are you sure you want to permanently delete this chat?';
   if(!confirm(confirmMsg)) return;
 
+  // احذف محلياً + سجّل الحذف عشان ما يرجع من أجهزة ثانية
+  const deleted = new Set(store.deletedChatIds || []);
+  deleted.add(chatId);
   store.chats = store.chats.filter(c => c.id !== chatId);
   store.messages = store.messages.filter(m => m.chatId !== chatId);
-  await saveStore(store);
+  store.deletedChatIds = Array.from(deleted);
+  _storeCache = {
+    chats: store.chats,
+    messages: store.messages,
+    presence: store.presence || {},
+    deletedChatIds: store.deletedChatIds
+  };
+
+  if(supabaseClient){
+    try{
+      const { error } = await supabaseClient
+        .from('store')
+        .upsert({
+          id: 1,
+          data: _storeCache,
+          updated_at: new Date().toISOString()
+        });
+      if(error){
+        console.warn('Delete save error:', error.message);
+        alert((currentLang === 'ar' ? 'فشل الحذف: ' : 'Delete failed: ') + error.message);
+      }
+    }catch(err){
+      console.warn('deleteChat save failed:', err);
+      alert((currentLang === 'ar' ? 'فشل الحذف' : 'Delete failed'));
+    }
+  }
 
   if(activeChatId === chatId) closeChat();
   renderUserTickets();
   if(currentUser.isAdmin) renderAdminTickets();
+  updateNavUnreadDots();
 }
 
 function renderTicketCard(chat, opts){
   opts = opts || {};
   const isAdminView = !!opts.isAdminView;
   const card = document.createElement('div');
-  card.className = 'ticket-card' + (chat.status === 'closed' ? ' ticket-closed' : '');
+  const unread = chatHasUnread(chat) && activeChatId !== chat.id;
+  card.className = 'ticket-card' + (chat.status === 'closed' ? ' ticket-closed' : '') + (unread ? ' ticket-unread' : '');
   card.dataset.chatId = chat.id;
 
   const closedBadge = chat.status === 'closed'
@@ -1305,7 +1352,7 @@ function renderTicketCard(chat, opts){
     ${deleteBtn}
     <img class="ticket-avatar" src="${escapeHtml(chat.clientAvatar || '')}" alt="">
     <div class="ticket-body">
-      <div class="ticket-title">${escapeHtml(chat.serverName)} · ${escapeHtml(chat.package)}</div>
+      <div class="ticket-title">${unread ? '<span class="ticket-unread-dot"></span>' : ''}${escapeHtml(chat.serverName)} · ${escapeHtml(chat.package)}</div>
       <div class="ticket-meta">
         ${closedBadge}
         <span>${escapeHtml(chat.clientName || '')}</span>
@@ -1367,6 +1414,7 @@ function renderUserTickets(){
     return;
   }
   mine.forEach(c => list.appendChild(renderTicketCard(c, { isAdminView: false })));
+  updateNavUnreadDots();
 }
 
 function renderAdminTickets(){
@@ -1405,6 +1453,8 @@ function renderAdminTickets(){
   if(openChats.length === 0 && closedChats.length === 0){
     list.innerHTML = `<div class="tickets-empty">${translations[currentLang].tickets_empty_admin}</div>`;
   }
+
+  updateNavUnreadDots();
 }
 
 /* ---------- Chat ---------- */
@@ -1431,6 +1481,10 @@ async function openChat(chatId){
   renderChatPresence();
   document.getElementById('chatOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  ensureChatThemeUI();
+  applyChatTheme(getSavedChatTheme());
+  closeChatThemePanel();
+  markChatRead(chatId);
   bumpPresence(chatId);
 }
 
@@ -1708,6 +1762,295 @@ function renderChatPresence(){
 
 // لم نعد نحتاج storage event لأن التخزين أصبح مشترك عبر السيرفر
 // window.addEventListener('storage' ... ) تم إزالته
+
+
+
+/* ---------- Unread notifications ---------- */
+const READ_KEY = 'flash_chat_read_v1';
+
+function loadReadMap(){
+  try{ return JSON.parse(localStorage.getItem(READ_KEY) || '{}'); }catch(e){ return {}; }
+}
+function saveReadMap(map){
+  try{ localStorage.setItem(READ_KEY, JSON.stringify(map)); }catch(e){}
+}
+function getChatLastRead(chatId){
+  const map = loadReadMap();
+  const uid = currentUser ? currentUser.id : 'guest';
+  return (map[uid] && map[uid][chatId]) || 0;
+}
+function markChatRead(chatId){
+  if(!chatId) return;
+  const map = loadReadMap();
+  const uid = currentUser ? currentUser.id : 'guest';
+  if(!map[uid]) map[uid] = {};
+  map[uid][chatId] = Date.now();
+  saveReadMap(map);
+  updateUnreadIndicators();
+}
+function chatHasUnread(chat){
+  if(!chat || !currentUser) return false;
+  const readAt = getChatLastRead(chat.id);
+  const store = loadStore();
+  // رسالة جديدة = من شخص تاني (مو أنت) وبعد آخر قراءة
+  const hasNew = (store.messages || []).some(m =>
+    m.chatId === chat.id &&
+    m.type !== 'system' &&
+    m.senderId &&
+    String(m.senderId) !== String(currentUser.id) &&
+    (m.createdAt || 0) > readAt
+  );
+  return hasNew;
+}
+function countUnreadForUser(){
+  if(!currentUser) return 0;
+  const store = loadStore();
+  let n = 0;
+  store.chats.forEach(c=>{
+    if(currentUser.isAdmin || c.clientId === currentUser.id){
+      if(activeChatId === c.id) return; // currently open
+      if(chatHasUnread(c)) n++;
+    }
+  });
+  return n;
+}
+function updateUnreadIndicators(){
+  // nav badges
+  const supportBtn = document.getElementById('navSupport');
+  const adminBtn = document.getElementById('navAdmin');
+  const n = countUnreadForUser();
+  [supportBtn, adminBtn].forEach(btn=>{
+    if(!btn) return;
+    let badge = btn.querySelector('.nav-unread-dot');
+    if(n > 0 && ((btn.id === 'navSupport' && currentUser && !currentUser.isAdmin) || (btn.id === 'navAdmin' && currentUser && currentUser.isAdmin) || (btn.id === 'navSupport' && currentUser))){
+      // show on support for everyone logged in who has unread in their chats; admin on admin tab
+      const show = (btn.id === 'navAdmin' && currentUser.isAdmin) || (btn.id === 'navSupport');
+      if(show && ((btn.id === 'navSupport' && countUnreadForUser() > 0) || (btn.id === 'navAdmin' && currentUser.isAdmin && countUnreadForUser() > 0))){
+        if(!badge){
+          badge = document.createElement('span');
+          badge.className = 'nav-unread-dot';
+          btn.style.position = 'relative';
+          btn.appendChild(badge);
+        }
+        badge.style.display = '';
+      } else if(badge){
+        badge.style.display = 'none';
+      }
+    } else if(badge){
+      badge.style.display = 'none';
+    }
+  });
+  // simpler dedicated update
+  updateNavUnreadDots();
+}
+
+function updateNavUnreadDots(){
+  const nUser = (()=>{
+    if(!currentUser) return 0;
+    const store = loadStore();
+    return store.chats.filter(c => c.clientId === currentUser.id && activeChatId !== c.id && chatHasUnread(c)).length;
+  })();
+  const nAdmin = (()=>{
+    if(!currentUser || !currentUser.isAdmin) return 0;
+    const store = loadStore();
+    return store.chats.filter(c => activeChatId !== c.id && chatHasUnread(c)).length;
+  })();
+
+  function setDot(btn, count){
+    if(!btn) return;
+    let badge = btn.querySelector('.nav-unread-dot');
+    if(count > 0){
+      if(!badge){
+        badge = document.createElement('span');
+        badge.className = 'nav-unread-dot';
+        btn.appendChild(badge);
+      }
+      badge.style.display = '';
+    } else if(badge){
+      badge.style.display = 'none';
+    }
+  }
+  setDot(document.getElementById('navSupport'), nUser > 0 || (currentUser && currentUser.isAdmin && nAdmin > 0) ? (nUser || nAdmin) : 0);
+  // Support shows user's own unread; Admin shows all unread for admins
+  setDot(document.getElementById('navSupport'), nUser);
+  setDot(document.getElementById('navAdmin'), nAdmin);
+}
+
+
+/* ---------- Chat Themes ---------- */
+const CHAT_THEMES = [
+  { id: 'default', label: { en: 'Default', ar: 'افتراضي' }, type: 'css' },
+  { id: 'anime1', label: { en: 'Anime City', ar: 'مدينة أنمي' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1578632292335-df3abbb0d586?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'anime2', label: { en: 'Sakura', ar: 'ساكورا' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'anime3', label: { en: 'Night Neon', ar: 'نيون ليلي' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'anime4', label: { en: 'Sunset Sky', ar: 'سماء غروب' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'anime5', label: { en: 'Mountain Mist', ar: 'جبال وضباب' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'light1', label: { en: 'Soft Peach', ar: 'خوخي فاتح' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'light2', label: { en: 'Pastel Clouds', ar: 'غيوم باستيل' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1534088568595-a066f410bc3a?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'light3', label: { en: 'Cream Abstract', ar: 'كريمي' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'light4', label: { en: 'Soft Blue', ar: 'أزرق ناعم' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'nature1', label: { en: 'Forest', ar: 'غابة' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'nature2', label: { en: 'Ocean', ar: 'محيط' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1505144808419-1957a94ca61e?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'nature3', label: { en: 'Desert', ar: 'صحراء' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'nature4', label: { en: 'Lavender', ar: 'لافندر' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1499002238440-d264edd596ec?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'space1', label: { en: 'Galaxy', ar: 'مجرة' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'space2', label: { en: 'Stars', ar: 'نجوم' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'urban1', label: { en: 'Tokyo Night', ar: 'طوكيو' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'urban2', label: { en: 'Rain Street', ar: 'شارع ممطر' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'abstract1', label: { en: 'Fluid Art', ar: 'فن سائل' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'abstract2', label: { en: 'Paint Waves', ar: 'موجات لون' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'cozy1', label: { en: 'Cafe Warm', ar: 'مقهى دافئ' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1200&q=80&auto=format&fit=crop' },
+  { id: 'cozy2', label: { en: 'Books Light', ar: 'كتب وإضاءة' }, type: 'img',
+    url: 'https://images.unsplash.com/photo-1481627834876-b7833e1d50b9?w=1200&q=80&auto=format&fit=crop' }
+]
+
+const CHAT_THEME_KEY = 'flash_chat_theme';
+
+function getSavedChatTheme(){
+  try{ return localStorage.getItem(CHAT_THEME_KEY) || 'default'; }catch(e){ return 'default'; }
+}
+
+function applyChatTheme(themeId){
+  const box = document.getElementById('chatMessages');
+  if(!box) return;
+  themeId = themeId || 'default';
+  const theme = CHAT_THEMES.find(t => t.id === themeId) || CHAT_THEMES[0];
+
+  // remove old theme-* classes
+  box.className = box.className
+    .split(/\s+/)
+    .filter(c => c && !c.startsWith('theme-'))
+    .join(' ');
+  box.classList.add('chat-messages');
+  box.classList.add('theme-' + theme.id);
+
+  if(theme.type === 'img' && theme.url){
+    box.style.backgroundImage = 'linear-gradient(rgba(8,2,2,.55), rgba(8,2,2,.62)), url(' + JSON.stringify(theme.url) + ')';
+    box.style.backgroundSize = 'cover';
+    box.style.backgroundPosition = 'center';
+    box.style.backgroundAttachment = 'local';
+  } else {
+    box.style.backgroundImage = '';
+    box.style.backgroundSize = '';
+    box.style.backgroundPosition = '';
+    box.style.backgroundAttachment = '';
+  }
+
+  try{ localStorage.setItem(CHAT_THEME_KEY, theme.id); }catch(e){}
+
+  document.querySelectorAll('.chat-theme-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.theme === theme.id);
+  });
+}
+
+function renderChatThemeGrid(){
+  const grid = document.getElementById('chatThemeGrid');
+  if(!grid) return;
+  const current = getSavedChatTheme();
+  grid.innerHTML = '';
+  CHAT_THEMES.forEach(t=>{
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'chat-theme-item' + (t.id === current ? ' active' : '');
+    el.dataset.theme = t.id;
+    if(t.type === 'img' && t.url){
+      el.style.backgroundImage = 'url(' + JSON.stringify(t.url) + ')';
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+    } else {
+      el.style.backgroundImage = 'linear-gradient(160deg,#1a0808,#0a0202)';
+    }
+    const label = (t.label && t.label[currentLang]) || t.label.en;
+    el.innerHTML = `<span>${label}</span>`;
+    el.addEventListener('click', ()=>{
+      applyChatTheme(t.id);
+    });
+    grid.appendChild(el);
+  });
+}
+
+function openChatThemePanel(){
+  renderChatThemeGrid();
+  const panel = document.getElementById('chatThemePanel');
+  const btn = document.getElementById('chatThemeBtn');
+  if(panel) panel.classList.add('open');
+  if(btn) btn.classList.add('active');
+}
+function closeChatThemePanel(){
+  const panel = document.getElementById('chatThemePanel');
+  const btn = document.getElementById('chatThemeBtn');
+  if(panel) panel.classList.remove('open');
+  if(btn) btn.classList.remove('active');
+}
+function toggleChatThemePanel(){
+  const panel = document.getElementById('chatThemePanel');
+  if(panel && panel.classList.contains('open')) closeChatThemePanel();
+  else openChatThemePanel();
+}
+
+function ensureChatThemeUI(){
+  // لو الـ HTML القديم ما فيه الزر، نضيفه تلقائي
+  const composer = document.querySelector('.chat-composer');
+  if(!composer) return;
+
+  if(!document.getElementById('chatThemePanel')){
+    const panel = document.createElement('div');
+    panel.className = 'chat-theme-panel';
+    panel.id = 'chatThemePanel';
+    panel.innerHTML = '<div class="chat-theme-head"><span>Themes</span><button type="button" id="chatThemeClose" aria-label="Close">✕</button></div><div class="chat-theme-grid" id="chatThemeGrid"></div>';
+    const main = document.querySelector('.chat-main');
+    if(main) main.insertBefore(panel, composer);
+  }
+
+  if(!document.getElementById('chatThemeBtn')){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chat-theme-btn';
+    btn.id = 'chatThemeBtn';
+    btn.title = 'Themes';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.7"/><path d="M14 17.5h7M17.5 14v7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+    const attach = composer.querySelector('.chat-attach');
+    if(attach && attach.nextSibling) composer.insertBefore(btn, attach.nextSibling);
+    else composer.insertBefore(btn, composer.firstChild);
+  }
+}
+
+(function initChatThemes(){
+  ensureChatThemeUI();
+  // event delegation — يشتغل حتى لو الزر انضاف لاحقًا
+  document.addEventListener('click', (e)=>{
+    if(e.target.closest('#chatThemeBtn')){
+      e.preventDefault();
+      toggleChatThemePanel();
+    }
+    if(e.target.closest('#chatThemeClose')){
+      e.preventDefault();
+      closeChatThemePanel();
+    }
+  });
+  applyChatTheme(getSavedChatTheme());
+})();
+
 
 /* ---------- بدء التشغيل ---------- */
 (async function bootstrap(){
