@@ -1465,6 +1465,19 @@ function canAccessChat(chat){
   return chat.clientId === currentUser.id;
 }
 
+/** رقم الشات حسب ترتيب الإنشاء (الأقدم = 1) */
+function getChatNumber(chatId){
+  const store = loadStore();
+  const sorted = (store.chats || []).slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const idx = sorted.findIndex(c => c.id === chatId);
+  return idx >= 0 ? idx + 1 : 0;
+}
+
+function formatChatTitle(chat){
+  const n = getChatNumber(chat.id);
+  return `الشات رقم ${n}-chat`;
+}
+
 async function openChat(chatId){
   await fetchStoreFromServer();
   const store = loadStore();
@@ -1472,11 +1485,10 @@ async function openChat(chatId){
   if(!chat || !canAccessChat(chat)) return;
 
   activeChatId = chatId;
-  document.getElementById('chatTopTitle').textContent =
-    `${chat.serverName} · ${chat.package}`;
+  document.getElementById('chatTopTitle').textContent = formatChatTitle(chat);
   const statusNote = chat.status === 'closed' ? ` · ${translations[currentLang].status_closed}` : '';
   document.getElementById('chatTopSub').textContent =
-    `${chat.clientName} (@${chat.clientUsername || ''})${statusNote}`;
+    `${chat.serverName} · ${chat.package} · ${chat.clientName} (@${chat.clientUsername || ''})${statusNote}`;
 
   renderChatMessages();
   renderChatPresence();
@@ -1521,8 +1533,9 @@ async function toggleChatClosedStatus(){
   if(currentUser.isAdmin) renderAdminTickets();
 
   // Update header status text
+  document.getElementById('chatTopTitle').textContent = formatChatTitle(chat);
   document.getElementById('chatTopSub').textContent =
-    `${chat.clientName} (@${chat.clientUsername || ''})` +
+    `${chat.serverName} · ${chat.package} · ${chat.clientName} (@${chat.clientUsername || ''})` +
     (chat.status === 'closed' ? ` · ${translations[currentLang].status_closed}` : '');
 
   // Close the chat overlay after locking (park it); reopen stays open
