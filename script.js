@@ -149,6 +149,9 @@ let typingClearTimer = null;
 let lastTypingSentAt = 0;
 const TYPING_TTL_MS = 4000;
 const TYPING_SAVE_MIN_MS = 1800;
+let mentionActiveIndex = 0;
+let mentionMatches = [];
+let mentionQueryStart = -1;
 
 const translations = {
   en: {
@@ -1624,6 +1627,7 @@ function closeChat(){
   document.getElementById('chatInput').value = '';
   const typingEl = document.getElementById('chatTyping');
   if(typingEl){ typingEl.style.display = 'none'; typingEl.textContent = ''; }
+  closeMentionPanel();
 }
 
 document.getElementById('chatCloseBtn').addEventListener('click', closeChat);
@@ -1662,7 +1666,7 @@ function renderChatMessages(){
           <span class="msg-author-name">${escapeHtml(m.senderName || '')}</span>
           <span class="msg-time">${formatMsgTime(m.createdAt)}</span>
         </div>
-        ${m.text ? `<div class="msg-text">${escapeHtml(m.text)}</div>` : ''}
+        ${m.text ? `<div class="msg-text">${formatMessageText(m.text)}</div>` : ''}
         ${m.image ? `<img class="msg-img" src="${m.image}" alt="attachment">` : ''}
       </div>
     `;
@@ -1716,13 +1720,12 @@ async function sendChatMessage(){
 }
 
 document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
-document.getElementById('chatInput').addEventListener('keydown', (e)=>{
-  if(e.key === 'Enter' && !e.shiftKey){
-    e.preventDefault();
-    sendChatMessage();
-  }
-});
+document.getElementById('chatInput').addEventListener('keydown', onChatInputKeydown);
 document.getElementById('chatInput').addEventListener('input', onChatInputTyping);
+document.getElementById('chatInput').addEventListener('blur', ()=>{
+  // تأخير بسيط عشان ضغط الماوس على عنصر المنشن يلحق
+  setTimeout(closeMentionPanel, 150);
+});
 
 document.getElementById('chatImageInput').addEventListener('change', (e)=>{
   const file = e.target.files && e.target.files[0];
@@ -1807,6 +1810,8 @@ function onChatInputTyping(){
     typingClearTimer = null;
   }
 
+  updateMentionPanel();
+
   if(!hasText){
     setTypingState(false);
     return;
@@ -1816,6 +1821,185 @@ function onChatInputTyping(){
   typingClearTimer = setTimeout(()=>{
     setTypingState(false);
   }, TYPING_TTL_MS);
+}
+
+/* ---------- @Mentions (Discord-style) ---------- */
+function getChatMentionMembers(){
+  if(!activeChatId) return [];
+  const store = loadStore();
+  const chat = store.chats.find(c => c.id === activeChatId);
+  if(!chat) return [];
+  const map = {};
+  // client
+  map[String(chat.clientId)] = {
+    id: String(chat.clientId),
+    name: chat.clientName || 'User',
+    username: chat.clientUsername || '',
+    avatar: chat.clientAvatar || ''
+  };
+  // admins
+  ADMIN_IDS.forEach(aid => {
+    const id = String(aid);
+    const disp = getAdminDisplay(id);
+    map[id] = {
+      id,
+      name: disp.name || 'Admin',
+      username: disp.username || '',
+      avatar: disp.avatar || ''
+    };
+  });
+  // anyone currently present
+  Object.values(store.presence || {}).forEach(p => {
+    if(!p || !p.id) return;
+    if(p.chatId !== activeChatId) return;
+    const id = String(p.id);
+    if(!map[id]){
+      map[id] = { id, name: p.name || 'User', username: '', avatar: p.avatar || '' };
+    } else {
+      if(p.name) map[id].name = p.name;
+      if(p.avatar) map[id].avatar = p.avatar;
+    }
+  });
+  // لا تمنشن نفسك في القائمة؟ نخليها عشان تقدر تشير لنفسك لو حاب — بس غالباً نستثني
+  return Object.values(map).filter(m => !currentUser || m.id !== String(currentUser.id));
+}
+
+function findMentionQuery(input){
+  if(!input) return null;
+  const val = input.value;
+  const caret = typeof input.selectionStart === 'number' ? input.selectionStart : val.length;
+  const before = val.slice(0, caret);
+  // آخر @ بعد مسافة أو بداية السطر، بدون مسافة بعده لسه
+  const m = before.match(/(^|[\s])@([^\s@]*)$/);
+  if(!m) return null;
+  return {
+    start: before.length - m[2].length - 1, // موضع الـ @
+    query: m[2].toLowerCase(),
+    caret
+  };
+}
+
+function closeMentionPanel(){
+  const panel = document.getElementById('chatMentionPanel');
+  if(panel){
+    panel.classList.remove('open');
+    panel.innerHTML = '';
+  }
+  mentionMatches = [];
+  mentionActiveIndex = 0;
+  mentionQueryStart = -1;
+}
+
+function updateMentionPanel(){
+  const input = document.getElementById('chatInput');
+  const panel = document.getElementById('chatMentionPanel');
+  if(!input || !panel || !activeChatId){
+    closeMentionPanel();
+    return;
+  }
+  const found = findMentionQuery(input);
+  if(!found){
+    closeMentionPanel();
+    return;
+  }
+  mentionQueryStart = found.start;
+  const members = getChatMentionMembers();
+  const q = found.query;
+  mentionMatches = members.filter(m => {
+    const name = (m.name || '').toLowerCase();
+    const user = (m.username || '').toLowerCase();
+    return !q || name.includes(q) || user.includes(q);
+  }).slice(0, 6);
+
+  if(mentionMatches.length === 0){
+    closeMentionPanel();
+    return;
+  }
+  if(mentionActiveIndex >= mentionMatches.length) mentionActiveIndex = 0;
+
+  panel.innerHTML = '';
+  mentionMatches.forEach((m, i) => {
+    const el = document.createElement('div');
+    el.className = 'chat-mention-item' + (i === mentionActiveIndex ? ' active' : '');
+    el.setAttribute('role', 'option');
+    el.dataset.index = String(i);
+    const avatar = m.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+    const uname = m.username ? `<span class="mention-user">@${escapeHtml(m.username)}</span>` : '';
+    el.innerHTML = `
+      <img src="${escapeHtml(avatar)}" alt="" onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+      <span>${escapeHtml(m.name || 'User')}${uname}</span>
+    `;
+    el.addEventListener('mousedown', (e)=>{
+      e.preventDefault(); // لا تفقد فوكس الإنبت
+      applyMention(i);
+    });
+    panel.appendChild(el);
+  });
+  panel.classList.add('open');
+}
+
+function applyMention(index){
+  const input = document.getElementById('chatInput');
+  if(!input || !mentionMatches[index]) return;
+  const m = mentionMatches[index];
+  const val = input.value;
+  const caret = typeof input.selectionStart === 'number' ? input.selectionStart : val.length;
+  const start = mentionQueryStart >= 0 ? mentionQueryStart : caret;
+  // استخدم @username لو موجود، وإلا الاسم
+  const tag = m.username ? ('@' + m.username) : ('@' + (m.name || 'user').replace(/\s+/g, ''));
+  const before = val.slice(0, start);
+  const after = val.slice(caret);
+  const next = before + tag + ' ' + after;
+  input.value = next;
+  const newPos = (before + tag + ' ').length;
+  input.setSelectionRange(newPos, newPos);
+  input.focus();
+  closeMentionPanel();
+  // فعّل typing
+  onChatInputTyping();
+}
+
+function formatMessageText(text){
+  if(!text) return '';
+  const escaped = escapeHtml(text);
+  // ظلل أي @word
+  return escaped.replace(/@([\w.\u0600-\u06FF]+)/g, '<span class="msg-mention">@$1</span>');
+}
+
+function onChatInputKeydown(e){
+  const panel = document.getElementById('chatMentionPanel');
+  const open = panel && panel.classList.contains('open') && mentionMatches.length > 0;
+
+  if(open){
+    if(e.key === 'ArrowDown'){
+      e.preventDefault();
+      mentionActiveIndex = (mentionActiveIndex + 1) % mentionMatches.length;
+      updateMentionPanel();
+      return;
+    }
+    if(e.key === 'ArrowUp'){
+      e.preventDefault();
+      mentionActiveIndex = (mentionActiveIndex - 1 + mentionMatches.length) % mentionMatches.length;
+      updateMentionPanel();
+      return;
+    }
+    if(e.key === 'Enter' || e.key === 'Tab'){
+      e.preventDefault();
+      applyMention(mentionActiveIndex);
+      return;
+    }
+    if(e.key === 'Escape'){
+      e.preventDefault();
+      closeMentionPanel();
+      return;
+    }
+  }
+
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    closeMentionPanel();
+    sendChatMessage();
+  }
 }
 
 function renderTypingIndicator(){
@@ -1866,7 +2050,7 @@ function startPresence(){
   presenceTimer = setInterval(()=> bumpPresence(activeChatId), 20000);
   storePollTimer = setInterval(()=>{
     refreshStoreAndRender();
-  }, 3000);
+  }, 5000);
 }
 
 function stopPresence(){
